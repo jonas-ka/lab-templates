@@ -2,8 +2,9 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
-## Unreleased
+## v2026.10.2 (2026-10-03)
 
+- CLAUDE.md and the CI scan: the lab's public contact address may appear; the scan checks home-folder and Drive-mirror prefixes and key patterns.
 - LOGBOOK_GUIDE: log books compile from the repository root (`typst compile --root . notes/<name>-logbook.typ`), since the template is reached through a shim into `lab/`.
 
 ## v2026.10.1 (2026-10-02)

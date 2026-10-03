@@ -8,8 +8,11 @@ figure notebook; the guides). Public repository; consumers pull it as a git subt
 ## Hard rules
 
 - **No private material.** No real logos (placeholders only), no figures of the group, no
-  names of students, no paths under `/Users/`, no Drive ids, no credentials. The CI scan
-  fails on `/Users/`, `GoogleDrive-`, `karthein@`, key patterns.
+  names of students, no absolute paths of anyone's home folder, no Drive mirror paths or
+  Drive ids, no credentials. The lab's public contact address may appear (it is on every
+  slide footer); personal addresses of others may not. The CI scan (see
+  `.github/workflows/ci.yml`) fails the build on the home-folder prefix, the Drive mirror
+  prefix and API-key patterns.
 - **A change compiles the examples** (`make check`: every `examples/*.typ` with
   `--pdf-standard ua-1`) before it is committed; a tag is made only on a green CI.
 - **Versions are tags `vYYYY.MM.N`**; `VERSION` holds the current one; `CHANGELOG.md` gets a
