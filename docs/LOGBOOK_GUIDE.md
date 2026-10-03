@@ -21,7 +21,8 @@ The repository's `notes/` folder, versioned and pushed with the code
 Compile (Typst ≥ 0.11; `brew install typst` if missing), from that folder:
 
 ```sh
-typst compile genesis-fastsims-logbook.typ
+# from the repository root: the template is imported through a shim into lab/ (lab-templates)
+typst compile --root . notes/<name>-logbook.typ
 ```
 
 Always compile after editing and fix any error before finishing.

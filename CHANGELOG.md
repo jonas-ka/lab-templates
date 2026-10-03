@@ -2,6 +2,10 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## Unreleased
+
+- LOGBOOK_GUIDE: log books compile from the repository root (`typst compile --root . notes/<name>-logbook.typ`), since the template is reached through a shim into `lab/`.
+
 ## v2026.10.1 (2026-10-02)
 
 First version, assembled from the canonical copies in `talks-repo` (themes, STYLE, COURSES),
