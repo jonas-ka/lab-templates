@@ -18,6 +18,7 @@ talks-repo|typst compile --root . --pdf-standard ua-1 talks/2026-09-group-meetin
 phys206-mechanics|uv run talks course build --force >/dev/null
 phys698-nucl-exp|uv run talks course build --force >/dev/null
 karthein-cv|uv run cv build --public >/dev/null
+cyclotron-talks|typst compile --root . --pdf-standard ua-1 docs/host-guide/host-guide.typ /tmp/lab-check.pdf
 EOF
 }
 failed=""

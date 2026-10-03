@@ -2,6 +2,10 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## Unreleased
+
+- New consumer `cyclotron-talks` (notes theme: host guidelines) in `scripts/propagate.sh` and CLAUDE.md.
+
 ## v2026.10.2 (2026-10-03)
 
 - CLAUDE.md and the CI scan: the lab's public contact address may appear; the scan checks home-folder and Drive-mirror prefixes and key patterns.
