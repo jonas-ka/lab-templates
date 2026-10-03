@@ -1,0 +1,40 @@
+# On a new tag, open an update pull request in every consumer repository. Needs the secret
+# CONSUMER_TOKEN: a fine-grained personal access token with "Contents: read and write" and
+# "Pull requests: read and write" on the consumer repositories. Without it the job exits
+# early and does nothing.
+name: update consumers
+on:
+  push:
+    tags: ["v*"]
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repo: [jonas-ka/talks-repo, jonas-ka/phys206-mechanics, jonas-ka/phys698-nucl-exp, jonas-ka/karthein-cv]
+    env:
+      TOKEN: ${{ secrets.CONSUMER_TOKEN }}
+    steps:
+      - name: Check for the token
+        run: |
+          if [ -z "$TOKEN" ]; then echo "CONSUMER_TOKEN not set; nothing to do"; echo "skip=1" >> "$GITHUB_ENV"; fi
+      - uses: actions/checkout@v4
+        if: env.skip != '1'
+        with:
+          repository: ${{ matrix.repo }}
+          token: ${{ env.TOKEN }}
+          fetch-depth: 0
+      - name: Pull the tag into lab/ and open a pull request
+        if: env.skip != '1'
+        env:
+          GH_TOKEN: ${{ env.TOKEN }}
+        run: |
+          git config user.name "lab-templates bot"
+          git config user.email "noreply@github.com"
+          tag="${GITHUB_REF_NAME}"
+          branch="lab-templates/$tag"
+          git checkout -b "$branch"
+          sh scripts/lab-templates.sh pull "$tag"
+          git push -u origin "$branch"
+          gh pr create --title "lab-templates $tag" --body "Update lab/ to lab-templates $tag. Read lab/CHANGELOG.md, build the documents that matter, merge." --head "$branch"

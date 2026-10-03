@@ -1,0 +1,8 @@
+build/
+*.pdf
+!assets/figures/*.pdf
+.DS_Store
+__pycache__/
+token.json
+credentials.json
+.env
