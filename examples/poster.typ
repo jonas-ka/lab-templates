@@ -30,5 +30,5 @@
   event: [Example meeting, 2026],
   acknowledgements: [Supported by nobody in particular.],
   website: "example.edu",
-  contact: [you\@example.edu],
+  contact: "you@example.edu",
 )
