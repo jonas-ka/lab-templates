@@ -110,10 +110,64 @@
 #let blank(height: 4cm) = if is-lecture { on-html([], block(width: 100%, height: height, breakable: false)) }
 
 /// Typed working that is replaced by empty space in lecture mode (`height` of that space):
-///   #work(height: 6cm)[ $ a = F/m = ... $ ]
-#let work(height: 5cm, body) = if is-lecture {
-  on-html([], block(width: 100%, height: height, breakable: false, stroke: (paint: band.darken(25%), thickness: 0.5pt, dash: "dotted"), radius: radius.sm))
+///   #work(height: 6cm, title: [Range of the shell])[ $ a = F/m = ... $ ]
+/// `title` names the box in the lecture copy, so the writer knows what goes in it; it is not
+/// shown in the student copy (the surrounding text already says).
+#let work(height: 5cm, title: none, body) = if is-lecture {
+  on-html([], block(width: 100%, height: height, breakable: false, stroke: (paint: band.darken(25%), thickness: 0.5pt, dash: "dotted"), radius: radius.sm, inset: 6pt,
+    if title != none { text(size: 9pt, fill: muted, style: "italic", title) }))
 } else { body }
+
+/// Prose for the student copy only: explanation, context, an analogy. Dropped in the lecture
+/// copy, where it would only be read aloud. Plain in HTML.
+///   #aside[The same equation governs a car's braking distance ...]
+#let aside(body) = if not is-lecture { on-html(body, block(width: 100%, inset: (left: 10pt), stroke: (left: 1.5pt + band.darken(20%)), text(size: 10.5pt, body))) }
+
+/// A figure drawn live in class: the finished drawing in the student copy (a file with alt text),
+/// an empty box of the same height with the caption in the lecture copy.
+///   #sketch("fig-train.svg", alt: "...", height: 5cm, caption: [Everything we know, on the picture.])
+#let sketch(path, alt: none, height: 5cm, width: 80%, caption: none, label: none) = {
+  assert(alt != none, message: "every sketch needs alt text")
+  if is-lecture {
+    // not a `figure`: an empty block has no alt text and UA-1 would refuse it
+    on-html([], block(width: 100%, above: 10pt, below: 10pt, align(center, {
+      block(width: width, height: height, stroke: (paint: band.darken(25%), thickness: 0.5pt, dash: "dotted"), radius: radius.sm,
+        align(top + left, pad(6pt, text(size: 9pt, fill: muted, style: "italic")[draw: #alt])))
+      if caption != none { v(6pt); text(size: 10pt, fill: muted, caption) }
+    })))
+  } else { fig(path, alt: alt, width: width, caption: caption, label: label) }
+}
+
+/// A lecture demonstration, placed where its physics is done: thumbnail (alt text required: the
+/// PLC has none), PIRA code and name, the prediction question, one line on what was seen, and a
+/// link to a video for students who missed it.
+///   #demo(code: "1C20.10", name: [Penny and feather in a vacuum], photo: "/demos/thumbs/1C20.10.jpg",
+///         alt: "...", video: "https://...", predict: [Which lands first in air? In vacuum?])[one line]
+#let demo(code: none, name: [], photo: none, alt: none, video: none, predict: none, body) = {
+  assert(photo == none or alt != none, message: "a demo photo needs alt text")
+  let text-part = {
+    _label([Demo], "yellow"); if code != none { text(fill: muted)[ #code] }; [ · *#name*]
+    if predict != none { linebreak(); [*Predict first:* #predict] }
+    linebreak(); body
+    if video != none { linebreak(); text(size: 10pt)[Missed it? #link(video)[Video of the demonstration]] }
+  }
+  on-html(
+    block(width: 100%, inset: 10pt, stroke: (left: 3pt + line-color.at("yellow")), fill: panel.at("yellow"), {
+      if photo != none { image(photo, width: 30%, alt: alt) }; text-part }),
+    block(width: 100%, inset: (x: 12pt, y: 9pt), radius: radius.md, fill: panel.at("yellow"), stroke: 1pt + line-color.at("yellow"), above: 10pt, below: 10pt, breakable: false,
+      if photo != none {
+        grid(columns: (3.2cm, 1fr), column-gutter: 10pt, align(top, image(photo, width: 100%, alt: alt)), align(top, { set par(justify: false); text-part }))
+      } else { set par(justify: false); text-part }),
+  )
+}
+
+/// A Poll Everywhere question (the Friday quiz): the question and options in every copy, the
+/// answer only in `solutions` mode (built, never published) and in the answers copy posted after
+/// the quiz.
+///   #poll(answer: [b: gravity acts the whole time])[At the top of its flight the ball's acceleration is (a) zero (b) 9.8 m/s² down ...]
+#let poll(answer: none, body) = {
+  _panel("blue", [Quiz], none, { body; if is-solutions and answer != none { v(4pt); [*Answer:* #answer] } })
+}
 
 /// A solution: shown in `solutions` mode only (problem sets); hidden in `student` and `lecture`.
 #let solution(breakable: true, body) = if is-solutions { _panel("green", [Solution], none, body, breakable: breakable) }
