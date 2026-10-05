@@ -29,6 +29,7 @@
   "=": "equals", "≠": "is not equal to", "≈": "is approximately", "≃": "is approximately", "≡": "is identical to",
   "∝": "is proportional to", "<": "is less than", ">": "is greater than", "≤": "is less than or equal to",
   "≥": "is greater than or equal to", "≪": "is much less than", "≫": "is much greater than",
+  "⟂": "is perpendicular to", "⊥": "is perpendicular to", "∥": "is parallel to",
   "+": "plus", "−": "minus", "-": "minus", "±": "plus or minus", "∓": "minus or plus", "×": "times", "·": "times",
   "⋅": "times", "∗": "star", "/": "over", "÷": "divided by", "∘": "composed with",
   "→": "which gives", "↦": "maps to", "⇒": "implies", "⇔": "if and only if", "←": "comes from",
@@ -153,8 +154,10 @@
         if txt(k) in ("⋅", "·", "×") and i > 0 and i + 1 < kids.len() {
           let nx = kids.at(i + 1)
           let unit-ijk(k) = k.func() == math.accent and k.base.has("text") and type(k.base.text) == str and k.base.text in ("i", "j", "k")
-          let prev-vec = is-vec(kids.at(i - 1)) or (kids.at(i - 1).func() == math.lr and is-vec(kids.at(i - 1).body)) or unit-ijk(kids.at(i - 1))
-          let next-vec = is-vec(nx) or unit-ijk(nx) or (txt(nx) == "d" and i + 2 < kids.len() and is-vec(kids.at(i + 2))) or (txt(nx) == "m" and i + 2 < kids.len() and is-vec(kids.at(i + 2)))
+          // a bracket holding a vector, `(B arrow(i) + y arrow(j)) × (-m g arrow(j))`, counts as a vector
+          let has-vec(x) = is-vec(x) or unit-ijk(x) or (x.func() == math.lr and has-vec(x.body)) or (x.func() == sequence and x.children.any(has-vec))
+          let prev-vec = is-vec(kids.at(i - 1)) or has-vec(kids.at(i - 1)) or unit-ijk(kids.at(i - 1))
+          let next-vec = is-vec(nx) or unit-ijk(nx) or (nx.func() == math.lr and has-vec(nx)) or (txt(nx) == "d" and i + 2 < kids.len() and is-vec(kids.at(i + 2))) or (txt(nx) == "m" and i + 2 < kids.len() and is-vec(kids.at(i + 2)))
           if prev-vec or next-vec {
             words.push(if txt(k) == "×" { "cross" } else { "dot" })
             i += 1
@@ -178,14 +181,16 @@
           let j = i + 1
           while j < kids.len() and not is-bar(kids.at(j)) { j += 1 }
           if j < kids.len() {
-            let inner = _join(kids.slice(i + 1, j).map(speak))
+            // spoken as one expression, so `|arrow(A) × arrow(B)|` keeps its "cross"
+            let inner = speak(kids.slice(i + 1, j).join())
             let close = kids.at(j)
             let sub = if close.func() == math.attach and close.has("b") { " sub " + speak(close.b) } else { "" }
             let sup = if close.func() == math.attach and close.has("t") {
               let t = speak(close.t)
               if t == "2" { " squared" } else if t == "3" { " cubed" } else { " to the " + t }
             } else { "" }
-            words.push(if inner.starts-with("vector ") { "the magnitude of " + inner.slice(7) + sub + ", end magnitude," + sup } else { "the absolute value of " + inner + sub + ", end absolute value," + sup })
+            words.push(if inner.starts-with("vector ") and not inner.slice(7).contains(" ") { "the magnitude of " + inner.slice(7) + sub + ", end magnitude," + sup }
+              else if inner.starts-with("vector ") or inner.starts-with("unit vector ") { "the magnitude of " + inner + sub + ", end magnitude," + sup } else { "the absolute value of " + inner + sub + ", end absolute value," + sup })
             i = j + 1
             merged = true
             continue
@@ -265,7 +270,9 @@
     if c.has("bl") { out = _join((speak(c.bl), out)) }
     if c.has("tl") { out = _join((speak(c.tl), out)) }
     if c.has("b") {
-      let btxt = if c.b.has("text") and type(c.b.text) == str { c.b.text } else { "" }
+      // `H_min`: Typst makes `min` an operator; read its name, not "minutes"
+      let btxt = if c.b.has("text") and type(c.b.text) == str { c.b.text }
+        else if c.b.func() == math.op and c.b.text.has("text") { c.b.text.text } else { "" }
       let b = if btxt in sub-words { sub-words.at(btxt) } else if c.b.func() == text { btxt } else { speak(c.b) }
       if b == "the maximum of" { b = "max" } else if b == "the minimum of" { b = "min" }   // v_max: `max` is an operator
       if b.match(regex("^[0-9]{2,}$")) != none { b = b.clusters().join(" ") }   // F_12: "F sub 1 2"

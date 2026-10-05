@@ -157,7 +157,7 @@
   let text-part = {
     _label([Demo], "yellow"); if code != none { text(fill: muted)[ #code] }; [ · *#name*]
     if predict != none { linebreak(); [*Predict first:* #predict] }
-    if is-lecture { linebreak(); text(style: "italic", fill: muted)[*After:* #body] } else { linebreak(); body }
+    if is-lecture { linebreak(); text(style: "italic", fill: muted)[*After:* #body] } else { linebreak(); [*What happens:* #body] }
     if video != none and not is-lecture { linebreak(); text(size: 10pt)[Missed it? #link(video)[Video: #name]] }
   }
   on-html(
