@@ -187,11 +187,13 @@
             continue
           }
         }
-        let single(k) = txt(k).match(regex("^[A-Za-z0-9.]+$")) != none or k.func() == math.accent or k.func() == math.attach
+        let single(k) = txt(k).match(regex("^[\\p{L}\\p{N}.°]+$")) != none or k.func() == math.accent or k.func() == math.attach
         let limit-like = kids.len() == 3 and i == 1 and single(kids.at(0)) and single(kids.at(2))
         let limit-neg = kids.len() == 4 and i == 1 and single(kids.at(0)) and txt(kids.at(2)) in ("−", "-") and single(kids.at(3))
         let limit-deg = kids.len() == 4 and i == 1 and single(kids.at(0)) and single(kids.at(2)) and txt(kids.at(3)) == "°"
-        if txt(k) == "→" and i + 1 < kids.len() and (txt(kids.at(i + 1)) in ("0", "∞") or limit-like or limit-neg or limit-deg) {
+        // "a → …" with a single symbol before the arrow and no "=" after it is a limit
+        let limit-any = i == 1 and single(kids.at(0)) and kids.slice(2).all(x => txt(x) != "=")
+        if txt(k) == "→" and i + 1 < kids.len() and (txt(kids.at(i + 1)) in ("0", "∞") or limit-like or limit-neg or limit-deg or limit-any) {
           words.push("approaches")
           i += 1
           merged = true
@@ -259,6 +261,7 @@
     if c.has("b") {
       let btxt = if c.b.has("text") and type(c.b.text) == str { c.b.text } else { "" }
       let b = if btxt in sub-words { sub-words.at(btxt) } else if c.b.func() == text { btxt } else { speak(c.b) }
+      if b == "the maximum of" { b = "max" } else if b == "the minimum of" { b = "min" }   // v_max: `max` is an operator
       if b.match(regex("^[0-9]{2,}$")) != none { b = b.clusters().join(" ") }   // F_12: "F sub 1 2"
       out += if b == "0" and base.len() <= 2 { " zero" } else { " sub " + b }
     }
