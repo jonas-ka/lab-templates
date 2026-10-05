@@ -395,7 +395,7 @@
         }
       })
       linebreak()
-      text(size: 9.5pt, fill: muted)[_Italic behind a dotted rule:_ say it. #h(0.3em) *WRITE* / *DRAW* frames: write or draw it on the board, live. #h(0.3em) _▸ cue:_ for you only.]
+      text(size: 9.5pt, fill: muted, if day == "Friday" [This copy is projected: _▸_ lines are instructions for the room; write into the empty boxes. The solutions are in the student copy.] else [_Italic behind a dotted rule:_ say it. #h(0.3em) *WRITE* / *DRAW* frames: write or draw it on the board, live. #h(0.3em) _▸ cue:_ for you only.])
     }
     v(6pt); line(length: 100%, stroke: 1pt + brand)
   })
