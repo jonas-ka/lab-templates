@@ -215,7 +215,10 @@
         set text(style: "normal", fill: ink)
         _tag([WRITE], min, title); v(1pt); body
       })
-  } else { block(width: 100%, above: 8pt, below: 8pt, body) }
+  } else {
+    // student copy: what was on the board, set off from the prose by a hairline rule
+    on-html(body, block(width: 100%, above: 8pt, below: 8pt, breakable: breakable, inset: (left: 10pt, y: 2pt), stroke: (left: 1pt + brand.lighten(50%)), body))
+  }
 }
 
 /// A figure drawn live: the finished figure in both copies; the lecture copy labels it
@@ -239,29 +242,37 @@
 /// unless `answers: false`: the lecture copy shows the results to discuss, and the student copy
 /// is posted after the class.
 ///   #quiz(yaml("/quizzes/W06.yaml"))    #quiz(yaml("/quizzes/W01.yaml"), only: (1, 2))
-#let quiz(data, answers: true, only: none) = _panel("blue", [Quiz], [Poll Everywhere, ungraded], {
+#let quiz(data, answers: true, only: none) = {
   let letters = "abcdefgh".clusters()
   // `only: (1, 2, 4)` keeps those questions (1-based), e.g. for a short quiz
   let qs = if only == none { data.questions } else { only.map(i => data.questions.at(i - 1)) }
-  let items = qs.map(q => {
+  let opts-of(q) = q.at("options", default: none)
+  let question(q) = {
     q.q
-    let opts = q.at("options", default: none)
+    let opts = opts-of(q)
     if opts != none {
       linebreak()
       opts.enumerate().map(((i, o)) => [(#letters.at(i)) #o.trim("*", at: start)]).join(h(1em))
     }
-    if answers {
-      let right = if opts != none { opts.enumerate().filter(((i, o)) => o.starts-with("***")).map(((i, o)) => [(#letters.at(i)) #o.trim("*", at: start)]) } else { () }
-      linebreak()
-      text(size: 10pt, fill: muted, {
-        [*Answer:* ]
-        if right.len() > 0 { right.join([, ]); [. ] }
-        q.at("why", default: "")
-      })
-    }
-  })
-  enum(numbering: "1.", ..items)
-})
+  }
+  let answer(q) = {
+    let opts = opts-of(q)
+    let right = if opts != none { opts.enumerate().filter(((i, o)) => o.starts-with("***")).map(((i, o)) => [(#letters.at(i)) #o.trim("*", at: start)]) } else { () }
+    if right.len() > 0 { right.join([, ]); [. ] }
+    q.at("why", default: "")
+  }
+  if is-lecture and answers {
+    // projected: the questions alone, the answers on the next page (shown after the poll closes)
+    _panel("blue", [Quiz], [Poll Everywhere, ungraded], enum(numbering: "1.", ..qs.map(question)))
+    pagebreak(weak: true)
+    _panel("blue", [Quiz results], [after the poll closes], enum(numbering: "1.", ..qs.map(q => { question(q); linebreak(); text(fill: muted)[*Answer:* #answer(q)] })))
+  } else {
+    _panel("blue", [Quiz], [Poll Everywhere, ungraded], enum(numbering: "1.", ..qs.map(q => {
+      question(q)
+      if answers { linebreak(); text(size: 10pt, fill: muted)[*Answer:* #answer(q)] }
+    })))
+  }
+}
 
 /// A solution: shown in `solutions` mode only (problem sets); hidden in `student` and `lecture`.
 #let solution(breakable: true, body) = if is-solutions { _panel("green", [Solution], none, body, breakable: breakable) }
