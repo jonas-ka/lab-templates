@@ -120,6 +120,15 @@
       while i < kids.len() {
         let k = kids.at(i)
         let is-num = txt(k).match(regex("^[0-9.]+$")) != none
+        // `1\/2 g t^2`: a slash between two small numbers is a spoken fraction, "one half"
+        if txt(k) in small-numbers and i + 2 < kids.len() and txt(kids.at(i + 1)) == "/" and _ordinal(txt(kids.at(i + 2))) != none {
+          let n = txt(k)
+          let o = _ordinal(txt(kids.at(i + 2)))
+          words.push(small-numbers.at(n) + " " + (if n != "1" { if o == "half" { "halves" } else { o + "s" } } else { o }))
+          i += 3
+          merged = true
+          continue
+        }
         if is-num and i + 1 < kids.len() {
           let nx = kids.at(i + 1)
           let u = unit-of(nx)
