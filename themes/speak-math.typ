@@ -38,7 +38,7 @@
   "∈": "in", "∉": "not in", "∀": "for all", "∃": "there exists", "∅": "the empty set", "∪": "union", "∩": "intersection",
   "⟨": "the expectation value of", "⟩": "", "|": "", "‖": "", "∣": "given", "†": "dagger",
   "(": "open parenthesis", ")": "close parenthesis", "[": "open bracket", "]": "close bracket", "{": "open brace", "}": "close brace",
-  ",": ",", ";": ";", ":": "such that", "'": "prime", "%": "percent", "&": "", "\\": "",
+  ",": ",", ";": ";", ":": ",", "'": "prime", "%": "percent", "&": "", "\\": "",
   // named functions and constants that appear as identifiers
   "sin": "sine", "cos": "cosine", "tan": "tangent", "arcsin": "arc sine", "arccos": "arc cosine", "arctan": "arc tangent",
   "sinh": "hyperbolic sine", "cosh": "hyperbolic cosine", "tanh": "hyperbolic tangent",
@@ -58,11 +58,21 @@
 
 // Units written as quoted text in math (`"m/s"^2`, `"kg"`) are read as words.
 #let unit-words = (
-  "m": "metres", "cm": "centimetres", "mm": "millimetres", "km": "kilometres", "s": "seconds", "ms": "milliseconds",
+  "m": "meters", "cm": "centimeters", "mm": "millimeters", "km": "kilometers", "s": "seconds", "ms": "milliseconds",
   "kg": "kilograms", "g": "grams", "N": "newtons", "J": "joules", "W": "watts", "Hz": "hertz", "rad": "radians",
-  "h": "hours", "min": "minutes", "ft": "feet", "mph": "miles per hour",
-  "m/s": "metres per second", "km/h": "kilometres per hour", "ft/s": "feet per second", "N/m": "newtons per metre",
-  "rad/s": "radians per second", "kg m/s": "kilogram metres per second", "m^2/s^2": "metres squared per second squared",
+  "h": "hours", "min": "minutes", "ft": "feet", "mph": "miles per hour", "lb": "pounds", "lbs": "pounds",
+  "kN": "kilonewtons", "kJ": "kilojoules", "MJ": "megajoules", "kW": "kilowatts", "MW": "megawatts", "GW": "gigawatts",
+  "hp": "horsepower", "slug": "slugs", "eV": "electron volts",
+  "m/s": "meters per second", "km/h": "kilometers per hour", "ft/s": "feet per second", "N/m": "newtons per meter",
+  "kN/m": "kilonewtons per meter", "rad/s": "radians per second", "kg m/s": "kilogram meters per second",
+  "m^2/s^2": "meters squared per second squared", "ft/s^2": "feet per second squared",
+)
+
+// Quoted labels on W and friends: `W^"grav"` reads "W done by gravity"
+#let label-words = (
+  "grav": "done by gravity", "gravity": "done by gravity", "fric": "done by friction", "friction": "done by friction",
+  "spring": "done by the spring", "man": "done by the man", "total": "done by the total force", "cons": "done by the conservative forces",
+  "nc": "done by the non-conservative forces", "N": "done by the normal force", "K.E.": "kinetic energy", "P.E.": "potential energy",
 )
 
 // "1 metres" -> "1 metre": the first word of a unit phrase in the singular after the number 1
@@ -89,7 +99,7 @@
   if c == none or c == [] { return "" }
   let f = c.func()
   if f == text {
-    _plain(c.text)
+    if c.text in unit-words { unit-words.at(c.text) } else if c.text in ("K.E.", "P.E.") { label-words.at(c.text) } else { _plain(c.text) }
   } else if f == sequence {
     let kids = c.children.filter(k => k.func() != space and k.func() != h)
     // a number followed by a quoted unit ("9.8 m/s", `4 thin "s"`): the text is a unit (bare
@@ -136,6 +146,25 @@
           continue
         }
         last-unit = false
+        let is-vec(k) = k.func() == math.accent or (k.func() == math.attach and k.base.func() == math.accent)
+        if txt(k) in ("⋅", "·") and i > 0 and i + 1 < kids.len() {
+          let nx = kids.at(i + 1)
+          if is-vec(kids.at(i - 1)) or is-vec(nx) or (txt(nx) == "d" and i + 2 < kids.len() and is-vec(kids.at(i + 2))) {
+            words.push("dot")
+            i += 1
+            merged = true
+            continue
+          }
+        }
+        if k.func() == math.lr and i > 0 and kids.at(i - 1).func() == math.attach {
+          let ik = if k.body.func() == sequence { k.body.children.filter(x => x.func() != space) } else { (k.body,) }
+          if ik.len() == 3 and txt(ik.first()) == "(" and txt(ik.last()) == ")" and txt(ik.at(1)).match(regex("^[0-9]$")) != none {
+            words.push("at point " + txt(ik.at(1)))
+            i += 1
+            merged = true
+            continue
+          }
+        }
         if txt(k) == "|" {
           // the closing bar may carry a subscript: `|arrow(F)|_"spring"`
           let is-bar(k) = txt(k) == "|" or (k.func() == math.attach and txt(k.base) == "|")
@@ -145,13 +174,18 @@
             let inner = _join(kids.slice(i + 1, j).map(speak))
             let close = kids.at(j)
             let sub = if close.func() == math.attach and close.has("b") { " sub " + speak(close.b) } else { "" }
-            words.push(if inner.starts-with("vector ") { "the magnitude of " + inner.slice(7) + sub + ", end magnitude," } else { "the absolute value of " + inner + sub + ", end absolute value," })
+            let sup = if close.func() == math.attach and close.has("t") {
+              let t = speak(close.t)
+              if t == "2" { " squared" } else if t == "3" { " cubed" } else { " to the " + t }
+            } else { "" }
+            words.push(if inner.starts-with("vector ") { "the magnitude of " + inner.slice(7) + sub + ", end magnitude," + sup } else { "the absolute value of " + inner + sub + ", end absolute value," + sup })
             i = j + 1
             merged = true
             continue
           }
         }
-        if txt(k) == "→" and i + 1 < kids.len() and txt(kids.at(i + 1)) in ("0", "∞") {
+        let single(k) = txt(k).match(regex("^[A-Za-z0-9.]+$")) != none or k.func() == math.accent or k.func() == math.attach
+        if txt(k) == "→" and i + 1 < kids.len() and (txt(kids.at(i + 1)) in ("0", "∞") or (kids.len() == 3 and i == 1 and single(kids.at(0)) and single(kids.at(2)))) {
           words.push("approaches")
           i += 1
           merged = true
@@ -194,6 +228,26 @@
     }
     let out = base
     if base == "" and c.has("t") and not c.has("b") { return "superscript " + speak(c.t) }
+    // the work W^"grav"_(1 2): "W done by gravity from 1 to 2"
+    if base == "W" {
+      if c.has("t") {
+        let t = c.t
+        out += if t.func() == text and t.text in label-words { " " + label-words.at(t.text) }
+          else if t.func() == text { " " + t.text }
+          else if t.func() == math.accent or (t.func() == math.attach and t.base.func() == math.accent) { " done by " + speak(t) }
+          else { " to the " + speak(t) }
+      }
+      if c.has("b") {
+        let bk = if c.b.func() == sequence { c.b.children.filter(x => x.func() != space) } else { (c.b,) }
+        let arrow-at = bk.position(x => x.has("text") and type(x.text) == str and x.text == "→")
+        let btxt = if bk.len() == 1 and bk.first().has("text") and type(bk.first().text) == str { bk.first().text } else { "" }
+        out += if arrow-at != none { " from " + _join(bk.slice(0, arrow-at).map(speak)) + " to " + _join(bk.slice(arrow-at + 1).map(speak)) }
+          else if bk.len() == 2 { " from " + speak(bk.first()) + " to " + speak(bk.last()) }
+          else if btxt.match(regex("^[0-9]{2}$")) != none { " from " + btxt.first() + " to " + btxt.last() }
+          else { " sub " + speak(c.b) }
+      }
+      return out
+    }
     if c.has("bl") { out = _join((speak(c.bl), out)) }
     if c.has("tl") { out = _join((speak(c.tl), out)) }
     if c.has("b") {
@@ -201,7 +255,9 @@
       if b.match(regex("^[0-9]{2,}$")) != none { b = b.clusters().join(" ") }   // F_12: "F sub 1 2"
       out += if b == "0" and base.len() <= 2 { " nought" } else { " sub " + b }
     }
-    if c.has("t") {
+    if c.has("t") and c.t.func() == text and c.t.text.match(regex("^[A-Za-z.]+$")) != none {
+      out += " " + c.t.text + ","          // a quoted label: F^"man" reads "F man,"
+    } else if c.has("t") {
       let t = speak(c.t)
       out += if t == "2" { " squared" } else if t == "3" { " cubed" } else if t == "prime" or t == "dagger" or t == "star" { " " + t }
         else if t == "minus 1" and base != "" { " inverse" }
@@ -215,7 +271,7 @@
     let d = speak(c.denom)
     let o = if n in small-numbers { _ordinal(d) } else { none }
     if o != none { small-numbers.at(n) + " " + o + (if n != "1" { "s" } else { "" }) }
-    else if n.len() <= 3 and d.len() <= 3 and not d.contains(" ") { n + " over " + d }
+    else if n.len() <= 5 and d.len() <= 5 { n + " over " + d }
     else if n.len() <= 3 { n + " over, " + d + ", end fraction," }
     else { "the fraction " + n + " over " + d + ", end fraction," }
   } else if f == math.binom {
