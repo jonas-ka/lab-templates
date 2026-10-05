@@ -239,7 +239,7 @@
 
 /// The Friday quiz from its YAML (quizzes/W<nn>.yaml: questions with `q`, `options` where the
 /// correct one starts with `***`, `why`, `type: open-ended`). Answers are printed in every copy
-/// unless `answers: false`: the lecture copy shows the results to discuss, and the student copy
+/// unless `answers: false` (a question with `feedback: true`, the one-minute paper, never has one): the lecture copy shows the results to discuss, and the student copy
 /// is posted after the class.
 ///   #quiz(yaml("/quizzes/W06.yaml"))    #quiz(yaml("/quizzes/W01.yaml"), only: (1, 2))
 #let quiz(data, answers: true, only: none) = {
@@ -265,11 +265,11 @@
     // projected: the questions alone, the answers on the next page (shown after the poll closes)
     _panel("blue", [Quiz], [Poll Everywhere, ungraded], enum(numbering: "1.", ..qs.map(question)))
     pagebreak(weak: true)
-    _panel("blue", [Quiz results], [after the poll closes], enum(numbering: "1.", ..qs.map(q => { question(q); linebreak(); text(fill: muted)[*Answer:* #answer(q)] })))
+    _panel("blue", [Quiz results], [after the poll closes], enum(numbering: "1.", ..qs.map(q => { question(q); if not q.at("feedback", default: false) { linebreak(); text(fill: muted)[*Answer:* #answer(q)] } })))
   } else {
     _panel("blue", [Quiz], [Poll Everywhere, ungraded], enum(numbering: "1.", ..qs.map(q => {
       question(q)
-      if answers { linebreak(); text(size: 10pt, fill: muted)[*Answer:* #answer(q)] }
+      if answers and not q.at("feedback", default: false) { linebreak(); text(size: 10pt, fill: muted)[*Answer:* #answer(q)] }
     })))
   }
 }
