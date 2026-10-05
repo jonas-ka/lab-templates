@@ -165,7 +165,8 @@
         if k.func() == math.lr and i > 0 and kids.at(i - 1).func() == math.attach {
           let ik = if k.body.func() == sequence { k.body.children.filter(x => x.func() != space) } else { (k.body,) }
           if ik.len() == 3 and txt(ik.first()) == "(" and txt(ik.last()) == ")" and txt(ik.at(1)).match(regex("^[0-9]$")) != none {
-            words.push("at point " + txt(ik.at(1)))
+            // v^2(0), v_L (0): the initial value, "at time zero"; v_x(2): "at point 2" (chapters 7–8)
+            words.push(if txt(ik.at(1)) == "0" { "at time zero" } else { "at point " + txt(ik.at(1)) })
             i += 1
             merged = true
             continue
