@@ -150,10 +150,13 @@
         }
         last-unit = false
         let is-vec(k) = k.func() == math.accent or (k.func() == math.attach and k.base.func() == math.accent)
-        if txt(k) in ("⋅", "·") and i > 0 and i + 1 < kids.len() {
+        if txt(k) in ("⋅", "·", "×") and i > 0 and i + 1 < kids.len() {
           let nx = kids.at(i + 1)
-          if is-vec(kids.at(i - 1)) or is-vec(nx) or (txt(nx) == "d" and i + 2 < kids.len() and is-vec(kids.at(i + 2))) {
-            words.push("dot")
+          let unit-ijk(k) = k.func() == math.accent and k.base.has("text") and type(k.base.text) == str and k.base.text in ("i", "j", "k")
+          let prev-vec = is-vec(kids.at(i - 1)) or (kids.at(i - 1).func() == math.lr and is-vec(kids.at(i - 1).body)) or unit-ijk(kids.at(i - 1))
+          let next-vec = is-vec(nx) or unit-ijk(nx) or (txt(nx) == "d" and i + 2 < kids.len() and is-vec(kids.at(i + 2))) or (txt(nx) == "m" and i + 2 < kids.len() and is-vec(kids.at(i + 2)))
+          if prev-vec or next-vec {
+            words.push(if txt(k) == "×" { "cross" } else { "dot" })
             i += 1
             merged = true
             continue
