@@ -207,7 +207,7 @@
 /// What is written on the board, live, at the students' speed. Lecture copy: framed, labelled
 /// "WRITE · n min". Student copy: the same content, plain.
 ///   #write(min: 3, title: [the dot product in components])[ $ arrow(a) dot arrow(b) = a_x b_x + a_y b_y $ ]
-#let write(min: none, title: none, breakable: true, body) = {
+#let write(min: none, title: none, breakable: false, body) = {
   _count(min)
   if is-lecture {
     block(width: 100%, above: 8pt, below: 8pt, breakable: breakable, inset: (x: 10pt, y: 8pt), radius: radius.sm,
