@@ -69,6 +69,9 @@
 )
 
 // Quoted labels on W and friends: `W^"grav"` reads "W done by gravity"
+// Quoted subscripts: `r_"cm"` is the centre of mass, not centimeters
+#let sub-words = ("cm": "c m", "CM": "c m", "EXT": "external", "ext": "external", "tot": "total", "max": "max", "min": "min", "grav": "gravity", "fric": "friction")
+
 #let label-words = (
   "grav": "done by gravity", "gravity": "done by gravity", "fric": "done by friction", "friction": "done by friction",
   "spring": "done by the spring", "man": "done by the man", "total": "done by the total force", "cons": "done by the conservative forces",
@@ -185,7 +188,9 @@
           }
         }
         let single(k) = txt(k).match(regex("^[A-Za-z0-9.]+$")) != none or k.func() == math.accent or k.func() == math.attach
-        if txt(k) == "→" and i + 1 < kids.len() and (txt(kids.at(i + 1)) in ("0", "∞") or (kids.len() == 3 and i == 1 and single(kids.at(0)) and single(kids.at(2)))) {
+        let limit-like = kids.len() == 3 and i == 1 and single(kids.at(0)) and single(kids.at(2))
+        let limit-neg = kids.len() == 4 and i == 1 and single(kids.at(0)) and txt(kids.at(2)) in ("−", "-") and single(kids.at(3))
+        if txt(k) == "→" and i + 1 < kids.len() and (txt(kids.at(i + 1)) in ("0", "∞") or limit-like or limit-neg) {
           words.push("approaches")
           i += 1
           merged = true
@@ -251,9 +256,9 @@
     if c.has("bl") { out = _join((speak(c.bl), out)) }
     if c.has("tl") { out = _join((speak(c.tl), out)) }
     if c.has("b") {
-      let b = speak(c.b)
+      let b = if c.b.func() == text { sub-words.at(c.b.text, default: c.b.text) } else { speak(c.b) }
       if b.match(regex("^[0-9]{2,}$")) != none { b = b.clusters().join(" ") }   // F_12: "F sub 1 2"
-      out += if b == "0" and base.len() <= 2 { " nought" } else { " sub " + b }
+      out += if b == "0" and base.len() <= 2 { " zero" } else { " sub " + b }
     }
     if c.has("t") and c.t.func() == text and c.t.text.match(regex("^[A-Za-z.]+$")) != none {
       out += " " + c.t.text + ","          // a quoted label: F^"man" reads "F man,"
@@ -270,7 +275,7 @@
     let n = speak(c.num)
     let d = speak(c.denom)
     let o = if n in small-numbers { _ordinal(d) } else { none }
-    if o != none { small-numbers.at(n) + " " + o + (if n != "1" { "s" } else { "" }) }
+    if o != none { small-numbers.at(n) + " " + (if n != "1" { (if o == "half" { "halves" } else { o + "s" }) } else { o }) }
     else if n.len() <= 5 and d.len() <= 5 { n + " over " + d }
     else if n.len() <= 3 { n + " over, " + d + ", end fraction," }
     else { "the fraction " + n + " over " + d + ", end fraction," }
