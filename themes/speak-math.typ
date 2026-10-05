@@ -31,7 +31,7 @@
   "≥": "is greater than or equal to", "≪": "is much less than", "≫": "is much greater than",
   "+": "plus", "−": "minus", "-": "minus", "±": "plus or minus", "∓": "minus or plus", "×": "times", "·": "times",
   "⋅": "times", "∗": "star", "/": "over", "÷": "divided by", "∘": "composed with",
-  "→": "goes to", "↦": "maps to", "⇒": "implies", "⇔": "if and only if", "←": "comes from",
+  "→": "which gives", "↦": "maps to", "⇒": "implies", "⇔": "if and only if", "←": "comes from",
   "∞": "infinity", "∂": "partial", "∇": "del", "∑": "the sum of", "∏": "the product of", "∫": "the integral of",
   "∮": "the closed integral of", "√": "the square root of", "ℏ": "h bar", "ħ": "h bar", "ℓ": "ell",
   "°": "degrees", "′": "prime", "″": "double prime", "…": "and so on", "⋯": "and so on", "!": "factorial",
@@ -55,8 +55,18 @@
 
 #let _join(parts) = parts.filter(s => s != "").join(" ")
 
+// Units written as quoted text in math (`"m/s"^2`, `"kg"`) are read as words.
+#let unit-words = (
+  "m": "metres", "cm": "centimetres", "mm": "millimetres", "km": "kilometres", "s": "seconds", "ms": "milliseconds",
+  "kg": "kilograms", "g": "grams", "N": "newtons", "J": "joules", "W": "watts", "Hz": "hertz", "rad": "radians",
+  "h": "hours", "min": "minutes", "ft": "feet", "mph": "miles per hour",
+  "m/s": "metres per second", "km/h": "kilometres per hour", "ft/s": "feet per second", "N/m": "newtons per metre",
+  "rad/s": "radians per second", "kg m/s": "kilogram metres per second", "m^2/s^2": "metres squared per second squared",
+)
+
 #let _plain(s) = {
   // a run of characters: split off trailing/leading punctuation we have words for
+  if s.len() >= 2 and s in unit-words { return unit-words.at(s) }
   if s in symbol-words { return symbol-words.at(s) }
   if s.len() > 1 and s.clusters().all(c => c in symbol-words) and s.clusters().all(c => not c.match(regex("[A-Za-z0-9]")) != none) {
     return _join(s.clusters().map(c => symbol-words.at(c)))
@@ -72,6 +82,43 @@
   if f == text {
     _plain(c.text)
   } else if f == sequence {
+    let kids = c.children.filter(k => k.func() != space)
+    // a number followed by a one-letter unit ("9.8 m", "4 s", "2 kg"): the letter is a unit
+    if kids.len() >= 2 {
+      let words = ()
+      let i = 0
+      while i < kids.len() {
+        let k = kids.at(i)
+        let is-num = k.has("text") and type(k.text) == str and k.text.match(regex("^[0-9.]+$")) != none
+        if is-num and i + 1 < kids.len() {
+          let nx = kids.at(i + 1)
+          let u = if nx.has("text") and type(nx.text) == str { nx.text } else if nx.func() == math.attach and nx.base.has("text") and type(nx.base.text) == str { nx.base.text } else { "" }
+          if u.len() == 1 and u in unit-words {
+            let w = unit-words.at(u)
+            if nx.func() == math.attach and nx.has("t") {
+              let t = speak(nx.t)
+              w += if t == "2" { " squared" } else if t == "3" { " cubed" } else { " to the " + t }
+            }
+            words.push(k.text + " " + w)
+            i += 2
+            continue
+          }
+        }
+        words.push(speak(k))
+        i += 1
+      }
+      if words.len() != kids.len() { return _join(words) }
+    }
+    // "f(x)", "x(t)", "v(0)": a one- or two-letter name followed by a bracketed single symbol
+    let name = if kids.len() == 2 and kids.first().has("text") and type(kids.first().text) == str { kids.first().text } else { "" }
+    if kids.len() == 2 and name.len() <= 2 and name.match(regex("^[A-Za-z]+$")) != none and kids.last().func() == math.lr {
+      let inner = kids.last().body
+      let ik = if inner.func() == sequence { inner.children } else { (inner,) }
+      if ik.len() == 3 and ik.first().has("text") and ik.first().text == "(" and ik.last().has("text") and ik.last().text == ")" {
+        let arg = speak(ik.at(1))
+        if arg.len() <= 12 { return name + " of " + arg }
+      }
+    }
     _join(c.children.map(speak))
   } else if f == space or f == h or f == linebreak {
     ""
@@ -99,7 +146,8 @@
     if c.has("t") {
       let t = speak(c.t)
       out += if t == "2" { " squared" } else if t == "3" { " cubed" } else if t == "prime" or t == "dagger" or t == "star" { " " + t }
-        else if t == "minus 1" and base != "" { " inverse" } else { " to the " + t }
+        else if t == "minus 1" and base != "" { " inverse" }
+        else if t.contains(" ") { " to the power " + t + ", end exponent," } else { " to the " + t }
     }
     if c.has("br") { out = _join((out, speak(c.br))) }
     if c.has("tr") { out = _join((out, speak(c.tr))) }
@@ -109,12 +157,15 @@
     let d = speak(c.denom)
     let o = if n in small-numbers { _ordinal(d) } else { none }
     if o != none { small-numbers.at(n) + " " + o + (if n != "1" { "s" } else { "" }) }
-    else if n.len() <= 3 and d.len() <= 3 { n + " over " + d }
+    else if n.len() <= 3 and d.len() <= 3 and not d.contains(" ") { n + " over " + d }
+    else if n.len() <= 3 { n + " over, " + d + ", end fraction," }
     else { "the fraction " + n + " over " + d + ", end fraction," }
   } else if f == math.binom {
     "the binomial coefficient " + speak(c.upper) + " choose " + _join(c.lower.map(speak))
   } else if f == math.root {
-    if c.has("index") { "the " + speak(c.index) + "th root of " + speak(c.radicand) } else { "the square root of " + speak(c.radicand) }
+    let r = speak(c.radicand)
+    let close = if r.contains(" ") { ", end root," } else { "" }
+    if c.has("index") { "the " + speak(c.index) + "th root of " + r + close } else { "the square root of " + r + close }
   } else if f == math.vec {
     "the vector with components " + c.children.map(speak).join(", ")
   } else if f == math.mat {
@@ -168,6 +219,15 @@
   }
 }
 
+/// Tidy a spoken string: no dangling punctuation, single spaces, a lone "the integral of" is the sign.
+#let tidy(t) = {
+  let u = t.replace(regex("\\s+"), " ").trim()
+  u = u.replace(regex(",\\s*,"), ",").replace(regex(",\\s*\\."), ".").replace(regex("\\s+([,.;])"), "$1")
+  u = u.replace(regex("[,;]\\s*$"), "").replace(regex("\\.\\s*$"), "")
+  if u == "the integral of" { u = "the integral sign" }
+  u
+}
+
 /// The math content of a source string, for `where(body: ...)` selectors.
 #let math-body(src) = {
   // the parser drops the spaces around `$ F = m a $`; eval keeps them
@@ -185,6 +245,6 @@
 /// An equation whose alt text is mandatory: a string, or `auto` for `speak(body)`.
 #let spoken-eq(alt: auto, block: true, numbering: none, body) = {
   assert(alt != none, message: "every equation needs alt text (a string, or auto for the spoken form)")
-  let a = if alt == auto { speak(body) } else { alt }
+  let a = if alt == auto { tidy(speak(body)) } else { alt }
   math.equation(block: block, numbering: numbering, alt: a, body)
 }

@@ -102,7 +102,7 @@
 /// What to take away (grey band).
 #let summary(body) = on-html(
   block(width: 100%, inset: 10pt, fill: band, [*Summary* #linebreak() #body]),
-  block(width: 100%, inset: (x: 12pt, y: 9pt), radius: radius.md, fill: band, above: 10pt, below: 10pt, { text(weight: "bold", fill: brand)[Summary]; v(3pt); body }),
+  block(width: 100%, inset: (x: 12pt, y: 9pt), radius: radius.md, fill: band, above: 10pt, below: 10pt, breakable: false, { text(weight: "bold", fill: brand)[Summary]; v(3pt); body }),
 )
 
 // ---------------------------------------------------------------- lecture-mode space
@@ -116,7 +116,7 @@
 #let work(height: 5cm, title: none, body) = if is-lecture {
   on-html([], block(width: 100%, height: height, breakable: false, stroke: (paint: band.darken(25%), thickness: 0.5pt, dash: "dotted"), radius: radius.sm, inset: 6pt,
     if title != none { text(size: 9pt, fill: muted, style: "italic", title) }))
-} else { body }
+} else { block(width: 100%, above: 8pt, below: 8pt, body) }
 
 /// Prose for the student copy only: explanation, context, an analogy. Dropped in the lecture
 /// copy, where it would only be read aloud. Plain in HTML.
@@ -126,13 +126,15 @@
 /// A figure drawn live in class: the finished drawing in the student copy (a file with alt text),
 /// an empty box of the same height with the caption in the lecture copy.
 ///   #sketch("fig-train.svg", alt: "...", height: 5cm, caption: [Everything we know, on the picture.])
-#let sketch(path, alt: none, height: 5cm, width: 80%, caption: none, label: none) = {
+#let sketch(path, alt: none, hint: none, height: 5cm, width: 80%, caption: none, label: none) = {
   assert(alt != none, message: "every sketch needs alt text")
+  // the lecture copy prints a short hint (default: the alt text's first sentence), not the whole alt
+  let h = if hint != none { hint } else { alt.split(". ").first() }
   if is-lecture {
     // not a `figure`: an empty block has no alt text and UA-1 would refuse it
     on-html([], block(width: 100%, above: 10pt, below: 10pt, breakable: false, align(center, {
       block(width: width, height: height, stroke: (paint: band.darken(25%), thickness: 0.5pt, dash: "dotted"), radius: radius.sm,
-        align(top + left, pad(6pt, text(size: 9pt, fill: muted, style: "italic")[draw: #alt])))
+        align(top + left, pad(6pt, text(size: 9pt, fill: muted, style: "italic")[draw: #h])))
       if caption != none { v(6pt); text(size: 10pt, fill: muted, caption) }
     })))
   } else { fig(path, alt: alt, width: width, caption: caption, label: label) }
@@ -149,7 +151,7 @@
     _label([Demo], "yellow"); if code != none { text(fill: muted)[ #code] }; [ · *#name*]
     if predict != none { linebreak(); [*Predict first:* #predict] }
     linebreak(); body
-    if video != none { linebreak(); text(size: 10pt)[Missed it? #link(video)[Video of the demonstration]] }
+    if video != none { linebreak(); text(size: 10pt)[Missed it? #link(video)[Video: #name]] }
   }
   on-html(
     block(width: 100%, inset: 10pt, stroke: (left: 3pt + line-color.at("yellow")), fill: panel.at("yellow"), {
@@ -224,12 +226,14 @@
       grid(columns: (1fr, auto, 1fr), author, [Page #counter(page).display() of #counter(page).final().first()], align(right)[#institution])
     },
   )
-  set heading(numbering: "1.1")
-  show heading.where(level: 1): it => block(above: 18pt, below: 10pt, {
+  // Paged: the title block is the one level-1 heading (PDF H1) and sections written as `=` are
+  // offset to level 2, numbered without the title's level ("1", "1.1"). HTML: Typst maps heading
+  // level n to h(n+1), so the title is emitted as an h1 element and sections stay at level 1.
+  show heading.where(level: 2): it => block(above: 18pt, below: 10pt, {
     text(size: 15pt, weight: "bold", fill: brand, it)
   })
-  show heading.where(level: 2): it => block(above: 14pt, below: 7pt, text(size: 12.5pt, weight: "bold", it))
-  show heading.where(level: 3): it => block(above: 10pt, below: 5pt, text(size: 11.5pt, weight: "bold", style: "italic", it))
+  show heading.where(level: 3): it => block(above: 14pt, below: 7pt, text(size: 12.5pt, weight: "bold", it))
+  show heading.where(level: 4): it => block(above: 10pt, below: 5pt, text(size: 11.5pt, weight: "bold", style: "italic", it))
   set list(indent: 8pt, spacing: 0.7em)
   set enum(indent: 8pt, spacing: 0.7em)
   show link: set text(fill: link-text)
@@ -245,11 +249,20 @@
   block(below: 14pt, {
     text(size: 10.5pt, fill: muted, weight: "bold")[#course · #institution]
     linebreak()
-    heading(level: 1, numbering: none, outlined: false, text(size: 20pt, fill: brand, heading-line))
+    context if target() == "html" { html.elem("h1", heading-line) } else {
+      heading(level: 1, numbering: none, outlined: false, text(size: 20pt, fill: brand, heading-line))
+    }
     v(2pt)
     text(size: 10.5pt, fill: muted)[#author#if date != none [ · #date]#if is-lecture [ · lecture copy]#if is-solutions [ · *solutions*]]
     v(6pt); line(length: 100%, stroke: 1pt + brand)
   })
 
-  apply-alts(alts, body)
+  context if target() == "html" {
+    set heading(numbering: "1.1")
+    apply-alts(alts, body)
+  } else {
+    set heading(offset: 1)
+    set heading(numbering: (..n) => numbering("1.1", ..n.pos().slice(1)))
+    apply-alts(alts, body)
+  }
 }
