@@ -243,7 +243,9 @@
     if base == "W" {
       if c.has("t") {
         let t = c.t
-        out += if t.func() == text and t.text in label-words { " " + label-words.at(t.text) }
+        // unquoted single letters (`W^N`) are not `text` elements but carry `.text`
+        let tt = if t.has("text") and type(t.text) == str { t.text } else { "" }
+        out += if tt in label-words { " " + label-words.at(tt) }
           else if t.func() == text { " " + t.text }
           else if t.func() == math.accent or (t.func() == math.attach and t.base.func() == math.accent) { " done by " + speak(t) }
           else { " to the " + speak(t) }
