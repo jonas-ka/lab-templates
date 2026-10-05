@@ -190,7 +190,8 @@
         let single(k) = txt(k).match(regex("^[A-Za-z0-9.]+$")) != none or k.func() == math.accent or k.func() == math.attach
         let limit-like = kids.len() == 3 and i == 1 and single(kids.at(0)) and single(kids.at(2))
         let limit-neg = kids.len() == 4 and i == 1 and single(kids.at(0)) and txt(kids.at(2)) in ("−", "-") and single(kids.at(3))
-        if txt(k) == "→" and i + 1 < kids.len() and (txt(kids.at(i + 1)) in ("0", "∞") or limit-like or limit-neg) {
+        let limit-deg = kids.len() == 4 and i == 1 and single(kids.at(0)) and single(kids.at(2)) and txt(kids.at(3)) == "°"
+        if txt(k) == "→" and i + 1 < kids.len() and (txt(kids.at(i + 1)) in ("0", "∞") or limit-like or limit-neg or limit-deg) {
           words.push("approaches")
           i += 1
           merged = true
@@ -256,7 +257,8 @@
     if c.has("bl") { out = _join((speak(c.bl), out)) }
     if c.has("tl") { out = _join((speak(c.tl), out)) }
     if c.has("b") {
-      let b = if c.b.func() == text { sub-words.at(c.b.text, default: c.b.text) } else { speak(c.b) }
+      let btxt = if c.b.has("text") and type(c.b.text) == str { c.b.text } else { "" }
+      let b = if btxt in sub-words { sub-words.at(btxt) } else if c.b.func() == text { btxt } else { speak(c.b) }
       if b.match(regex("^[0-9]{2,}$")) != none { b = b.clusters().join(" ") }   // F_12: "F sub 1 2"
       out += if b == "0" and base.len() <= 2 { " zero" } else { " sub " + b }
     }
@@ -276,7 +278,7 @@
     let d = speak(c.denom)
     let o = if n in small-numbers { _ordinal(d) } else { none }
     if o != none { small-numbers.at(n) + " " + (if n != "1" { (if o == "half" { "halves" } else { o + "s" }) } else { o }) }
-    else if n.len() <= 5 and d.len() <= 5 { n + " over " + d }
+    else if n.len() <= 5 and (d.len() <= 5 or (d.len() <= 9 and not d.contains("over") and not d.contains("plus") and not d.contains("minus"))) { n + " over " + d }
     else if n.len() <= 3 { n + " over, " + d + ", end fraction," }
     else { "the fraction " + n + " over " + d + ", end fraction," }
   } else if f == math.binom {
@@ -298,7 +300,8 @@
       "\u{20d7}": "vector ", "\u{307}": "the time derivative of ", "\u{308}": "the second time derivative of ",
       "\u{302}": "unit vector ", "\u{303}": "tilde ", "\u{304}": "bar ", "\u{30a}": "ring ", "\u{306}": "breve ", "\u{30c}": "check ",
     ).at(a, default: "")
-    word + speak(c.base)
+    let base-txt = if c.base.has("text") and type(c.base.text) == str { c.base.text } else { "" }
+    if word == "vector " and base-txt in ("i", "j", "k") { "unit vector " + base-txt } else { word + speak(c.base) }
   } else if f == math.op {
     speak(c.text)
   } else if f == math.lr {
