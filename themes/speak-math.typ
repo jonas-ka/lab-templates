@@ -188,7 +188,7 @@
     // delimiters are `symbol` elements with a `text` field (not `text` elements)
     let first = if kids.len() > 0 and kids.first().has("text") and type(kids.first().text) == str { kids.first().text } else { "" }
     let inner = _join(kids.slice(1, kids.len() - 1).map(speak))
-    if first == "|" { "the absolute value of " + inner + ", end absolute value," }
+    if first == "|" { (if inner.starts-with("vector ") { "the magnitude of " + inner.slice(7) } else { "the absolute value of " + inner }) + ", end magnitude," }
     else if first == "‖" { "the norm of " + inner + ", end norm," }
     else if first == "⟨" { "the expectation value of " + inner }
     else { speak(c.body) }
@@ -222,7 +222,7 @@
 /// Tidy a spoken string: no dangling punctuation, single spaces, a lone "the integral of" is the sign.
 #let tidy(t) = {
   let u = t.replace(regex("\\s+"), " ").trim()
-  u = u.replace(regex(",\\s*,"), ",").replace(regex(",\\s*\\."), ".").replace(regex("\\s+([,.;])"), "$1")
+  u = u.replace(regex(",\\s*,"), ",").replace(regex(",\\s*\\."), ".").replace(regex("\\s+([,.;])"), m => m.captures.at(0))
   u = u.replace(regex("[,;]\\s*$"), "").replace(regex("\\.\\s*$"), "")
   if u == "the integral of" { u = "the integral sign" }
   u

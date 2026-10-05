@@ -147,11 +147,13 @@
 ///         alt: "...", video: "https://...", predict: [Which lands first in air? In vacuum?])[one line]
 #let demo(code: none, name: [], photo: none, alt: none, video: none, predict: none, body) = {
   assert(photo == none or alt != none, message: "a demo photo needs alt text")
+  // The lecture copy is projected: it shows the prediction question but not the explanation,
+  // so the demo is not spoiled; the student copy has both and the video link.
   let text-part = {
     _label([Demo], "yellow"); if code != none { text(fill: muted)[ #code] }; [ · *#name*]
     if predict != none { linebreak(); [*Predict first:* #predict] }
-    linebreak(); body
-    if video != none { linebreak(); text(size: 10pt)[Missed it? #link(video)[Video: #name]] }
+    if not is-lecture { linebreak(); body }
+    if video != none and not is-lecture { linebreak(); text(size: 10pt)[Missed it? #link(video)[Video: #name]] }
   }
   on-html(
     block(width: 100%, inset: 10pt, stroke: (left: 3pt + line-color.at("yellow")), fill: panel.at("yellow"), {
