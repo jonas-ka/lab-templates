@@ -42,6 +42,7 @@
   // named functions and constants that appear as identifiers
   "sin": "sine", "cos": "cosine", "tan": "tangent", "arcsin": "arc sine", "arccos": "arc cosine", "arctan": "arc tangent",
   "sinh": "hyperbolic sine", "cosh": "hyperbolic cosine", "tanh": "hyperbolic tangent",
+  "cot": "cotangent", "sec": "secant", "csc": "cosecant",
   "ln": "the natural log of", "log": "log", "exp": "exponential of", "lim": "the limit", "max": "the maximum of", "min": "the minimum of",
   "det": "the determinant of", "tr": "the trace of", "dim": "the dimension of", "mod": "modulo",
   "d": "d", "e": "e", "i": "i",
@@ -64,6 +65,14 @@
   "rad/s": "radians per second", "kg m/s": "kilogram metres per second", "m^2/s^2": "metres squared per second squared",
 )
 
+// "1 metres" -> "1 metre": the first word of a unit phrase in the singular after the number 1
+#let _singular(w) = {
+  let parts = w.split(" ")
+  let f = parts.first()
+  f = if f == "feet" { "foot" } else if f == "hertz" { f } else if f.ends-with("s") { f.slice(0, f.len() - 1) } else { f }
+  (f, ..parts.slice(1)).join(" ")
+}
+
 #let _plain(s) = {
   // a run of characters: split off trailing/leading punctuation we have words for
   if s.len() >= 2 and s in unit-words { return unit-words.at(s) }
@@ -82,36 +91,84 @@
   if f == text {
     _plain(c.text)
   } else if f == sequence {
-    let kids = c.children.filter(k => k.func() != space)
-    // a number followed by a one-letter unit ("9.8 m", "4 s", "2 kg"): the letter is a unit
+    let kids = c.children.filter(k => k.func() != space and k.func() != h)
+    // a number followed by a quoted unit ("9.8 m/s", `4 thin "s"`): the text is a unit (bare
+    // letters are symbols: `2 g H`); "1 kg" is singular; `|...|` written as bare bars is a
+    // magnitude; "theta -> 0" approaches; "kg · m" drops the times between units
     if kids.len() >= 2 {
       let words = ()
       let i = 0
+      let merged = false
+      let last-unit = false
+      let txt(k) = if k.has("text") and type(k.text) == str { k.text } else { "" }
+      let quoted(k) = k.func() == text or (k.func() == math.attach and k.base.func() == text)
+      let unit-of(k) = if k.func() == text { k.text } else if k.func() == math.attach and k.base.func() == text { k.base.text } else { "" }
       while i < kids.len() {
         let k = kids.at(i)
-        let is-num = k.has("text") and type(k.text) == str and k.text.match(regex("^[0-9.]+$")) != none
+        let is-num = txt(k).match(regex("^[0-9.]+$")) != none
         if is-num and i + 1 < kids.len() {
           let nx = kids.at(i + 1)
-          let u = if nx.has("text") and type(nx.text) == str { nx.text } else if nx.func() == math.attach and nx.base.has("text") and type(nx.base.text) == str { nx.base.text } else { "" }
-          if u.len() == 1 and u in unit-words {
+          let u = unit-of(nx)
+          if u in unit-words and quoted(nx) {
             let w = unit-words.at(u)
             if nx.func() == math.attach and nx.has("t") {
               let t = speak(nx.t)
               w += if t == "2" { " squared" } else if t == "3" { " cubed" } else { " to the " + t }
             }
+            if k.text == "1" { w = _singular(w) }
             words.push(k.text + " " + w)
             i += 2
+            merged = true
+            last-unit = true
             continue
           }
+        }
+        if txt(k) in ("·", "⋅") and last-unit and i + 1 < kids.len() and unit-of(kids.at(i + 1)) in unit-words and quoted(kids.at(i + 1)) {
+          let nx = kids.at(i + 1)
+          let w = unit-words.at(unit-of(nx))
+          if nx.func() == math.attach and nx.has("t") {
+            let t = speak(nx.t)
+            w += if t == "2" { " squared" } else if t == "3" { " cubed" } else { " to the " + t }
+          }
+          words.push(_singular(w))
+          i += 2
+          merged = true
+          continue
+        }
+        last-unit = false
+        if txt(k) == "|" {
+          // the closing bar may carry a subscript: `|arrow(F)|_"spring"`
+          let is-bar(k) = txt(k) == "|" or (k.func() == math.attach and txt(k.base) == "|")
+          let j = i + 1
+          while j < kids.len() and not is-bar(kids.at(j)) { j += 1 }
+          if j < kids.len() {
+            let inner = _join(kids.slice(i + 1, j).map(speak))
+            let close = kids.at(j)
+            let sub = if close.func() == math.attach and close.has("b") { " sub " + speak(close.b) } else { "" }
+            words.push(if inner.starts-with("vector ") { "the magnitude of " + inner.slice(7) + sub + ", end magnitude," } else { "the absolute value of " + inner + sub + ", end absolute value," })
+            i = j + 1
+            merged = true
+            continue
+          }
+        }
+        if txt(k) == "→" and i + 1 < kids.len() and txt(kids.at(i + 1)) in ("0", "∞") {
+          words.push("approaches")
+          i += 1
+          merged = true
+          continue
         }
         words.push(speak(k))
         i += 1
       }
-      if words.len() != kids.len() { return _join(words) }
+      if merged { return _join(words) }
     }
-    // "f(x)", "x(t)", "v(0)": a one- or two-letter name followed by a bracketed single symbol
-    let name = if kids.len() == 2 and kids.first().has("text") and type(kids.first().text) == str { kids.first().text } else { "" }
-    if kids.len() == 2 and name.len() <= 2 and name.match(regex("^[A-Za-z]+$")) != none and kids.last().func() == math.lr {
+    // "f(x)", "x(t)", "v(0)", "v_x(2)": a one- or two-letter name, possibly with a subscript,
+    // followed by a bracketed single symbol
+    let head = if kids.len() == 2 { kids.first() } else { none }
+    let head-text = if head == none { "" } else if head.has("text") and type(head.text) == str { head.text }
+      else if head.func() == math.attach and head.has("b") and not head.has("t") and head.base.has("text") and type(head.base.text) == str { head.base.text } else { "" }
+    let name = if head-text.len() <= 2 and head-text.match(regex("^[A-Za-z]+$")) != none { speak(head) } else { "" }
+    if name != "" and kids.last().func() == math.lr {
       let inner = kids.last().body
       let ik = if inner.func() == sequence { inner.children } else { (inner,) }
       if ik.len() == 3 and ik.first().has("text") and ik.first().text == "(" and ik.last().has("text") and ik.last().text == ")" {
@@ -141,6 +198,7 @@
     if c.has("tl") { out = _join((speak(c.tl), out)) }
     if c.has("b") {
       let b = speak(c.b)
+      if b.match(regex("^[0-9]{2,}$")) != none { b = b.clusters().join(" ") }   // F_12: "F sub 1 2"
       out += if b == "0" and base.len() <= 2 { " nought" } else { " sub " + b }
     }
     if c.has("t") {
