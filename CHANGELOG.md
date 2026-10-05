@@ -2,6 +2,24 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.3 (2026-10-05)
+
+- New `themes/karthein-exam.typ`: written exams (cover page with name boxes, equation sheet and
+  a graders' table computed from the parts' points; problems in parts with answer space and
+  points; `mode=solutions` adds the typed solutions and green rubric marks `pts(n)[note]`).
+  Example `examples/exam.typ`.
+- `karthein-notes.typ`, the class script (one document per class meeting): `say` (italic in the
+  lecture copy, prose in the student copy), `write(min:)`/`draw(min:)` frames, `cue` (lecture
+  copy only), `recap(min:)`, `quiz(yaml, only:)` (answers on the next page in the lecture copy;
+  `feedback: true` questions print none), `work`/`sketch` with `min:`; `notes(chapter:, week:,
+  day:, budget:, plan:)` prints the meeting line, the writing total against the budget and the
+  time plan; the git revision from `--input rev=` on the first page; demo panels show their
+  explanation in the lecture copy and "What happens" in the student copy; `aside`, `sketch`,
+  `demo`, `poll`, `work(title:)` (from the PHYS 206 lectures).
+- `speak-math.typ`: many readings for mechanics (work labels "W done by gravity", `W^N`, unit
+  vectors, `·`/`×` between vectors as dot/cross incl. brackets and magnitude bars, limits,
+  `v^2(0)` "at time zero", `max`/`min` subscripts, ⟂/∥, American unit spellings, …).
+
 ## v2026.10.2 (2026-10-03)
 
 - CLAUDE.md and the CI scan: the lab's public contact address may appear; the scan checks home-folder and Drive-mirror prefixes and key patterns.
