@@ -59,11 +59,17 @@
 #let _part = counter("exam-part")
 
 /// A problem: "Problem 2: Coulomb Forces" and its statement. The parts follow inside or after.
-#let problem(title: none, breakable: true, body) = {
+/// `source:` (shown in the solutions mode only) says where the problem comes from and how it was
+/// changed, e.g. [Fall 2023 Exam 2, Problem 3; the incline now has friction, symbols instead of numbers].
+#let problem(title: none, source: none, breakable: true, body) = {
   _problem.step()
   _part.update(0)
   block(width: 100%, above: 12pt, below: 6pt, breakable: breakable, {
     text(weight: "bold")[Problem #context _problem.display()#if title != none [: #title]]
+    if is-solutions and source != none {
+      linebreak()
+      block(width: 100%, inset: 5pt, fill: band, radius: 3pt, text(size: 9pt, fill: muted)[*Source and changes:* #source])
+    }
     linebreak()
     body
   })
