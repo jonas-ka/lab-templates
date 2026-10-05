@@ -130,7 +130,7 @@
   assert(alt != none, message: "every sketch needs alt text")
   if is-lecture {
     // not a `figure`: an empty block has no alt text and UA-1 would refuse it
-    on-html([], block(width: 100%, above: 10pt, below: 10pt, align(center, {
+    on-html([], block(width: 100%, above: 10pt, below: 10pt, breakable: false, align(center, {
       block(width: width, height: height, stroke: (paint: band.darken(25%), thickness: 0.5pt, dash: "dotted"), radius: radius.sm,
         align(top + left, pad(6pt, text(size: 9pt, fill: muted, style: "italic")[draw: #alt])))
       if caption != none { v(6pt); text(size: 10pt, fill: muted, caption) }
