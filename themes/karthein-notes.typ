@@ -238,10 +238,12 @@
 /// correct one starts with `***`, `why`, `type: open-ended`). Answers are printed in every copy
 /// unless `answers: false`: the lecture copy shows the results to discuss, and the student copy
 /// is posted after the class.
-///   #quiz(yaml("/quizzes/W06.yaml"))
-#let quiz(data, answers: true) = _panel("blue", [Quiz], [Poll Everywhere, ungraded], {
+///   #quiz(yaml("/quizzes/W06.yaml"))    #quiz(yaml("/quizzes/W01.yaml"), only: (1, 2))
+#let quiz(data, answers: true, only: none) = _panel("blue", [Quiz], [Poll Everywhere, ungraded], {
   let letters = "abcdefgh".clusters()
-  let items = data.questions.map(q => {
+  // `only: (1, 2, 4)` keeps those questions (1-based), e.g. for a short quiz
+  let qs = if only == none { data.questions } else { only.map(i => data.questions.at(i - 1)) }
+  let items = qs.map(q => {
     q.q
     let opts = q.at("options", default: none)
     if opts != none {
