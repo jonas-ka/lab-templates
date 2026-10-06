@@ -39,8 +39,9 @@
 #let eq-group(title, body) = block(width: 100%, below: 6pt, {
   text(weight: "bold", style: "italic", size: 10.5pt, title)
   v(2pt)
-  set par(leading: 0.55em, spacing: 0.55em)
-  set text(size: 9pt)
+  // display fractions need their real height, or they touch the neighbouring lines
+  set text(size: 9pt, top-edge: "bounds", bottom-edge: "bounds")
+  set par(leading: 0.45em, spacing: 0.55em)
   body
 })
 
@@ -110,9 +111,12 @@
     } else {
       v(space)
     }
-    align(right, text(size: 10pt)[/#points])
-    v(-6pt)
-    line(length: 100%, stroke: 0.5pt + band.darken(25%))
+    // the points and the closing rule stay together (never a rule alone on a new page)
+    block(width: 100%, breakable: false, {
+      align(right, text(size: 10pt)[/#points])
+      v(-6pt)
+      line(length: 100%, stroke: 0.5pt + band.darken(25%))
+    })
   })
 }
 
