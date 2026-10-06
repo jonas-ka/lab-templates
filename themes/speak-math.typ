@@ -71,7 +71,7 @@
 
 // Quoted labels on W and friends: `W^"grav"` reads "W done by gravity"
 // Quoted subscripts: `r_"cm"` is the centre of mass, not centimeters
-#let sub-words = ("cm": "c m", "CM": "c m", "EXT": "external", "ext": "external", "tot": "total", "max": "max", "min": "min", "grav": "gravity", "fric": "friction")
+#let sub-words = ("cm": "center of mass", "CM": "center of mass", "EXT": "external", "ext": "external", "tot": "total", "max": "max", "min": "min", "grav": "gravity", "fric": "friction")
 
 #let label-words = (
   "grav": "done by gravity", "gravity": "done by gravity", "fric": "done by friction", "friction": "done by friction",
@@ -177,8 +177,16 @@
         if k.func() == math.lr and i > 0 and kids.at(i - 1).func() == math.attach {
           let ik = if k.body.func() == sequence { k.body.children.filter(x => x.func() != space) } else { (k.body,) }
           if ik.len() == 3 and txt(ik.first()) == "(" and txt(ik.last()) == ")" and txt(ik.at(1)).match(regex("^[0-9]$")) != none {
-            // v^2(0), v_L (0): the initial value, "at time zero"; v_x(2): "at point 2" (chapters 7–8)
-            words.push(if txt(ik.at(1)) == "0" { "at time zero" } else { "at point " + txt(ik.at(1)) })
+            // v_x(0), v_x(2), v^2(0): read literally, "v sub x of 0", "v of 0 squared" (J. Karthein's review,
+            // 2026-10-05: the equation says only "of 0"; time or point is the reader's knowledge)
+            let a = kids.at(i - 1)
+            let core = if a.has("b") { speak(math.attach(a.base, b: a.b)) } else { speak(a.base) }
+            let sup = if a.has("t") {
+              let t = speak(a.t)
+              if t == "2" { " squared" } else if t == "3" { " cubed" } else { " to the " + t }
+            } else { "" }
+            let _ = words.pop()
+            words.push(core + " of " + txt(ik.at(1)) + sup)
             i += 1
             merged = true
             continue
@@ -248,7 +256,11 @@
                "the closed integral of": "the closed integral", "the limit": "the limit", "the maximum of": "the maximum", "the minimum of": "the minimum")
     if base in big {
       let out = big.at(base)
-      if c.has("b") { out += (if base == "the limit" { " as " } else { " from " }) + speak(c.b) }
+      // "the sum over i of" when the subscript names only the index (no start value, no upper limit)
+      if c.has("b") {
+        let b = speak(c.b)
+        out += (if base == "the limit" { " as " } else if not c.has("t") and not b.contains("equals") { " over " } else { " from " }) + b
+      }
       if c.has("t") { out += " to " + speak(c.t) }
       return out + " of"
     }
@@ -293,7 +305,7 @@
       let t = speak(c.t)
       out += if t == "2" { " squared" } else if t == "3" { " cubed" } else if t == "prime" or t == "dagger" or t == "star" { " " + t }
         else if t == "minus 1" and base != "" { " inverse" }
-        else if t.contains(" ") { " to the power " + t + ", end exponent," } else { " to the " + t }
+        else if t.contains(" ") { " to the power of " + t + ", end exponent," } else { " to the " + t }
     }
     if c.has("br") { out = _join((out, speak(c.br))) }
     if c.has("tr") { out = _join((out, speak(c.tr))) }
