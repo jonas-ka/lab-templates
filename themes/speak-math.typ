@@ -29,7 +29,7 @@
   "=": "equals", "≠": "is not equal to", "≈": "is approximately", "≃": "is approximately", "≡": "is identical to",
   "∝": "is proportional to", "<": "is less than", ">": "is greater than", "≤": "is less than or equal to",
   "≥": "is greater than or equal to", "≪": "is much less than", "≫": "is much greater than",
-  "⟂": "is perpendicular to", "⊥": "is perpendicular to", "∥": "is parallel to",
+  "∼": "goes like", "~": "goes like", "⟂": "is perpendicular to", "⊥": "is perpendicular to", "∥": "is parallel to",
   "+": "plus", "−": "minus", "-": "minus", "±": "plus or minus", "∓": "minus or plus", "×": "times", "·": "times",
   "⋅": "times", "∗": "star", "/": "over", "÷": "divided by", "∘": "composed with",
   "→": "which gives", "↦": "maps to", "⇒": "implies", "⇔": "if and only if", "←": "comes from",
