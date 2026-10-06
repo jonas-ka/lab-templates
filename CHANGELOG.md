@@ -2,6 +2,14 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.5 (2026-10-05)
+
+- `speak-math.typ`, from the instructor's review of the PHYS 206 alt texts: a function value with
+  a digit reads literally, `v_x(0)` "v sub x of 0", `v^2(0)` "v of 0 squared" (no "at time zero" /
+  "at point"); subscript cm/CM "center of mass"; long exponents "to the power of …, end exponent";
+  a big operator whose subscript has no "=" and no upper limit reads "over" ("the sum over i of",
+  "the closed integral over C of").
+
 ## v2026.10.4 (2026-10-05)
 
 - `karthein-exam.typ` (from writing the PHYS 206 midterms and finals): `problem(source:)`, a
