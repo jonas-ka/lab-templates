@@ -2,6 +2,16 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.4 (2026-10-05)
+
+- `karthein-exam.typ` (from writing the PHYS 206 midterms and finals): `problem(source:)`, a
+  "Source and changes" note shown in the key only; the key says "Solutions and grading rubric"
+  in the subtitle line (the title never wraps, so the cover keeps its layout); equation-sheet
+  lines sized by their bounds (display fractions no longer touch); a part's points line and its
+  closing rule stay together on one page.
+- `speak-math.typ`: `1\/2 g t^2` reads "one half g t squared" (a slash between small numbers is a
+  spoken fraction); ∼ reads "goes like".
+
 ## v2026.10.3 (2026-10-05)
 
 - New `themes/karthein-exam.typ`: written exams (cover page with name boxes, equation sheet and
