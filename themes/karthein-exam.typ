@@ -158,9 +158,11 @@
   // the cover page (inside `apply-alts`, so the equation sheet gets its alt texts too)
   let cover = {
   align(center, {
-    heading(level: 1, outlined: false, text(size: 20pt, full-title + if is-solutions { " — Solutions" } else { "" }))
+    heading(level: 1, outlined: false, text(size: 20pt, full-title))
     v(2pt)
     text(style: "italic", size: 11pt, {
+      // the key says so in the subtitle line, so the title never wraps and the cover keeps its layout
+      if is-solutions { text(weight: "bold", style: "normal", fill: rubric-green)[Solutions and grading rubric — ] }
       instructor
       if sections != none [ — Sections #sections]
       if date != none [ — #date]
