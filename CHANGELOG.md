@@ -2,6 +2,25 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.6 (2026-10-07)
+
+Slide theme (`themes/karthein.typ`), requested by JK:
+
+- **Title slide** shows what built the deck, 9.5 pt muted at the bottom right: "Template
+  v2026.10.6 · git 4316cb6" — the version from `VERSION` (read relative to the theme, so
+  `lab/VERSION` in a consumer) and the revision from `--input rev=` (`talks generate`, `talks
+  html` and `talks course build` pass `git describe --always --dirty`; without it only the
+  version is shown).
+- **Justified running text**: `set par(justify: true)` for the slide body, with
+  `justification-limits` (word spacing 67–130 %, tracking −0.01 to +0.02 em) so narrow columns
+  do not open wide gaps; explicitly aligned content (`align(...)`: centred captions, diagram
+  labels) and tables are exempt. One-line text is unaffected. A per-paragraph rule "only from
+  three lines on" is not possible in Typst 0.15: bullets, composer columns and box text are not
+  paragraph elements, so no show rule reaches them; two-line text is justified too. Checked on
+  six decks (159 pages): no page count changed, diagrams and tables unchanged.
+- `docs/STYLE.md`: justification, the **text budget** (more than 120 body words = text-heavy,
+  cut by at least 10 % in the layout pass; counted by `talks layout`), the build line.
+
 ## v2026.10.5 (2026-10-05)
 
 - `speak-math.typ`, from the instructor's review of the PHYS 206 alt texts: a function value with
