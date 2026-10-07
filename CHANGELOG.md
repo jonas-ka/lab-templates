@@ -2,6 +2,12 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.7 (2026-10-07)
+
+- `scripts/lab-templates.sh pull` works in a repository made from `talks-repo-template`: there
+  `lab/` is a plain copy without subtree history, so the first pull replaces it by the subtree
+  (one commit removing the copy, then `git subtree add`); later pulls are ordinary.
+
 ## v2026.10.6 (2026-10-07)
 
 Slide theme (`themes/karthein.typ`), requested by JK:
