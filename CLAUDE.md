@@ -35,7 +35,7 @@ figure notebook; the guides). Public repository; consumers pull it as a git subt
 ## Consumers (pull by tag)
 
 `jonas-ka/talks-repo` (private; also generates the public `talks-repo-template` from its
-`lab/`), `jonas-ka/phys206-mechanics`, `jonas-ka/phys698-nucl-exp`, `jonas-ka/karthein-cv`,
+`lab/`), `jonas-ka/phys206-mechanics`, `jonas-ka/phys689-nucl-exp`, `jonas-ka/karthein-cv`,
 `jonas-ka/cyclotron-talks` (private; notes theme for the host guidelines, since v2026.10.2),
 and, once wired, `fastsims` and `ion-optics-surrogate` (lab notebook template, figure README).
 **After tagging, run `scripts/propagate.sh <tag>`** on the author's machine: it pulls the tag
