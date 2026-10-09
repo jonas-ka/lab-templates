@@ -2,6 +2,13 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## Unreleased
+
+- Notes theme (`themes/karthein-notes.typ`): `notes(page: (:))` passes extra `set page`
+  arguments into the theme's page setup, e.g. `page: (width: 11in, height: auto)` for one
+  continuous landscape page (explicit width and height take precedence over `paper` in Typst);
+  the default is unchanged.
+
 ## v2026.10.7 (2026-10-07)
 
 - `scripts/lab-templates.sh pull` works in a repository made from `talks-repo-template`: there
