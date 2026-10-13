@@ -209,17 +209,29 @@ def find_root(book: Book) -> Path:
 
 
 def build(book: Book, out: Path, entries: list[Entry] | None = None, title: str | None = None,
-          subtitle: str | None = None, summary: str | None = None, keep_source: bool = True) -> Path:
+          subtitle: str | None = None, summary: str | None = None, keep_source: bool = True,
+          anonymise: bool = False) -> Path:
+    """`anonymise`: authors and attendees appear as "Author 1", "Author 2", … (the text itself is
+    not changed: names written in an entry's text stay)."""
     if not shutil.which("typst"):
         raise render.RenderError("typst is needed for the PDF (https://typst.app; brew install typst)")
     p = render.prepare(book, entries)
+    if anonymise:
+        order = []
+        for e in p.entries:
+            for h in e.authors + list(e.header.get("attendees") or []):
+                if h not in order:
+                    order.append(h)
+        p.names = {h: f"Author {i}" for i, h in enumerate(order, 1)}
     root = find_root(book)
     src = typst_source(p, root, title or book.config.get("title", "Log book"), subtitle, summary)
     out = out.resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     typ = out.with_suffix(".typ")
-    if not typ.resolve().is_relative_to(root):
-        raise render.RenderError(f"the PDF must be written inside {root} (Typst's root)")
+    if not typ.is_relative_to(root.resolve()):   # the source must sit inside Typst's root; the PDF may go anywhere
+        (root / "build").mkdir(exist_ok=True)
+        typ = root / "build" / f".logbook-{out.stem}.typ"
+        keep_source = False
     typ.write_text(src, encoding="utf-8")
     pdf_only = [f.src for f in p.figs.values() if f.src.suffix.lower() == ".pdf" and not (f.svg or f.png)]
     standard = [] if pdf_only else ["--pdf-standard", "ua-1"]

@@ -5,8 +5,9 @@ checked before it is submitted. It records what happened, when and why: decision
 with their numbers, problems and their fixes, open items. The repository and its documents say
 how things *are*; the log book says what *happened*.
 
-This is the format, the checker (`logbook/`, since v2026.10.16), and the PDF and HTML view built
-from the entries (since v2026.10.17). The Typst log books
+This is the format, the checker (`logbook/`, since v2026.10.16), the PDF and HTML view built
+from the entries (since v2026.10.17), and the tools to write, cite, export, copy and migrate
+entries with the GitHub setup that goes with them (since v2026.10.18). The Typst log books
 (`#day`, `#note`, `#entry`, `docs/LOGBOOK_GUIDE.md`) keep working unchanged; moving one to this
 format is offered by a migration tool, never forced. A complete example: `examples/logbook/`.
 
@@ -212,3 +213,75 @@ Needs [pandoc](https://pandoc.org) (3.x) for both and [Typst](https://typst.app)
   ```
 
   `logo: <path>` in `logbook.yaml` puts the lab's logo at the top of the sidebar (embedded in the page).
+
+## The tools (since v2026.10.18)
+
+Every command runs from any folder inside the log book or a repository connected to it:
+`uv run --project lab/logbook logbook <command>`. `logbook <command> --help` lists the options.
+
+| Command | What it does |
+|---|---|
+| `new` | Writes an entry from a draft (`--from draft.md`, Markdown with a YAML header) or from flags (`--title`, `--project`, `--kind`, `--body`, …). Names the file, fills in the date, time, `logged` and `backfilled`, copies figures and files next to it, runs the checker, and asks about co-authors (people on the same project in the last 14 days) and the export-control confirmation for attachments. `--epics <group>` stores a snapshot of that PV group with the entry. |
+| `cite add <DOI or ISBN>` | Looks the work up (Crossref, Open Library) and adds it to `wiki/references.bib` with a key like `Smith2019`; a work already there is not added twice. |
+| `export` | A selection (`--project`, `--person`, `--apparatus`, `--kind`, `--tag`, `--from`, `--to`, `--query`, `--id`, `--release`) as a PDF with a cover page saying who asked, who approved, and what was selected. `--anonymise` shows authors as "Author 1", "Author 2". |
+| `month` | The PDF of the entries logged in one month (`--month YYYY-MM`, default last month): `Logbook-YYYY-MM.pdf`. |
+| `digest` | The weekly summary as Markdown: new entries by project, open items with their age, calibrations about to expire. |
+| `pull` | In a connected repository: writes the repository's copy of its projects (see below). |
+| `migrate <log.typ>` | Converts a Typst log book (`#day`, `#note`, `#entry`) into entries in `--into <book>`: callouts become blocks, figures are copied as version 1 (with SVG and PNG made from PDFs), the background section becomes a wiki page, the date of each entry's first commit becomes `logged`. Nothing is committed; a report lists what needs a look. Needs `--extra migrate`. |
+| `epics snapshot <group>` / `epics restore <entry>` | Reads a PV group from `apparatus.yaml` into a snapshot file; shows the differences between a stored snapshot and the machine, and writes the stored values only after you confirm. Needs `--extra epics` and the lab's EPICS network. |
+| `init-github` | Writes the "New entry" issue form and the workflows into `.github/` (below). |
+| `check`, `build`, `open-items`, `schema` | As above. |
+
+### Writing from a project repository
+
+A project repository writes into the central book when its own `logbook.yaml` says so:
+
+```yaml
+central:
+  repository: owner/logbook          # the central book on GitHub
+  clone: ~/Projects/logbook          # a local clone of it
+  project: FastSims                  # default project for entries written from here
+  projects: [FastSims]               # what `logbook pull` copies here (default: [project])
+```
+
+Who you are comes from `~/.config/logbook/config.yaml` (`handle: aa`), else from your GitHub
+login looked up in `people.yaml`. `logbook new` then works in a temporary checkout of the
+central book's `main`: it commits the entry on a branch `entry/<handle>/<id>`, pushes it, opens a
+pull request and lets it merge itself once the checks pass. Your clone and your working tree are
+not touched. `--no-submit` keeps the branch local; `--dry-run` only checks.
+
+`logbook pull` writes `logbook/` in the project repository: the entries of its projects with
+their files, the wiki pages and references they need, the PDF, the one-file HTML view,
+`SUMMARY.md` (read this first) and `GENERATED.md`. The copy is generated and replaced by the next
+pull; never edit it. It refuses a public repository always, an internal one unless
+`projects.yaml` gives the project `copy_internal_until: <date>` in the future, and any repository
+whose visibility it cannot find out.
+
+## On GitHub (since v2026.10.18)
+
+`logbook init-github` writes these files into the central book's `.github/`. They are copies, not
+references to lab-templates: run it again after a lab-templates update (`--force` replaces
+workflow files you have changed) and after a change to the registries (the form's menus come
+from them).
+
+| File | When | What |
+|---|---|---|
+| `ISSUE_TEMPLATE/new-entry.yml` | | The "New entry" form: title, kind, project, co-authors, apparatus, date, text, files dragged in, corrects/resolves, the export-control confirmation. |
+| `workflows/logbook-entry-from-issue.yml` | a form is submitted | Turns the form into an entry committed as its author, runs the checker, opens a pull request that merges itself, and reports back on the issue. A pull request opened by a workflow starts no other workflow, so this one runs the checker itself and posts the required check `entry-checks`. |
+| `workflows/logbook-checks.yml` | every pull request, every push to main | The check `entry-checks` that the ruleset requires. |
+| `workflows/logbook-site.yml` | every push to main | Builds the HTML view and the PDF and publishes them with GitHub Pages. |
+| `workflows/logbook-digest.yml` | Mondays | The digest as an issue "Week ending …". |
+| `workflows/logbook-monthly.yml` | the 1st of each month | The previous month's PDF, the whole book and the sources as a release `snapshot/YYYY-MM`; waits for approval in the environment `attest`. |
+| `workflows/logbook-export.yml` | on request (Actions, "Run workflow") | An export; waits for approval in the environment `export` and logs the request on the issue "Exports". |
+
+What the repository needs, set once by an owner:
+
+- **A ruleset on `main`**: pull requests only, the check `entry-checks` required, no force
+  pushes, no deletions; the PI as the only bypass.
+- **Auto-merge** allowed, and Actions allowed to create pull requests.
+- **Environments** `export` and `attest`, each with the PI as required reviewer.
+- **Pages** from "GitHub Actions", visibility private.
+- The label `new-entry` (the form sets it; the workflow acts only on issues that carry it).
+
+No workflow contains a secret: they use the workflow's own token, and every value from an issue
+or an input reaches the scripts through environment variables, never pasted into a command.

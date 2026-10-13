@@ -12,7 +12,7 @@ build/%.pdf: examples/%.typ $(wildcard themes/*.typ) $(wildcard notes/*.typ)
 # `make logbook`: the log-book tests, the example book through the checker, and its PDF and HTML
 # view in build/ (needs uv, pandoc and typst).
 logbook:
-	uv run --project logbook --extra test pytest -q logbook/tests
+	uv run --project logbook --extra test --extra epics --extra migrate pytest -q logbook/tests
 	uv run --project logbook logbook --root examples/logbook check
 	uv run --project logbook logbook --root examples/logbook build --pdf build/example-logbook.pdf --html build/example-logbook-site --single build/example-logbook.html
 

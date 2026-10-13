@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from lablogbook import html, pdf, render
+from lablogbook import htmlview as html, pdf, render
 from lablogbook.book import open_book
 
 EXAMPLE = Path(__file__).resolve().parents[2] / "examples" / "logbook"

@@ -2,6 +2,39 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.18 (2026-10-13)
+
+- **The log book's tools** (`docs/LOGBOOK_FORMAT.md`, "The tools"; `logbook <command> --help`):
+  - `logbook new`: an entry from a draft or from flags. Names the file, fills in date, time,
+    `logged` and `backfilled`, copies figures and files next to it, runs the checker, proposes
+    co-authors, asks for the export-control confirmation. In a repository connected to a central
+    book (`central:` in its `logbook.yaml`) it submits the entry as a pull request that merges
+    itself, from a temporary checkout, without touching your clone. `--epics <group>` stores a
+    snapshot of a PV group with the entry.
+  - `logbook cite add <DOI or ISBN>`: a reference from Crossref or Open Library into
+    `wiki/references.bib`, journal titles abbreviated, no duplicates.
+  - `logbook export` (a selection as a PDF, with who asked and who approved; `--anonymise`),
+    `logbook month` (`Logbook-YYYY-MM.pdf`), `logbook digest` (the weekly summary).
+  - `logbook pull`: a project repository's generated copy of its projects (`logbook/`, with
+    `SUMMARY.md`, the PDF and the one-file view). Never into a public repository; into an
+    internal one only with a dated permission in `projects.yaml` (`copy_internal_until`).
+  - `logbook migrate <log.typ>`: a Typst log book into entries (callouts into blocks, figures
+    copied as version 1 with SVG and PNG, the background into a wiki page, `logged` from git).
+    Nothing is committed; a report lists what needs a look. Extra: `--extra migrate` (pymupdf).
+  - `logbook epics snapshot|restore`: EPICS settings read into a snapshot, and a stored
+    snapshot written back after the differences are shown and confirmed. Extra: `--extra epics`
+    (caproto).
+- **On GitHub** (`docs/LOGBOOK_FORMAT.md`, "On GitHub"): `logbook init-github` writes the "New
+  entry" issue form (menus from the registries) and six workflows into `.github/`: the required
+  check `entry-checks`, entries from submitted forms, the HTML view on GitHub Pages, the weekly
+  digest, the monthly snapshot release (approved in the environment `attest`), and exports
+  (approved in the environment `export`). They are copied, not referenced: run it again after an
+  update. No secrets; inputs reach the scripts only through environment variables.
+- `logbook build`: the Python module for the view is now `htmlview` (it shadowed the standard
+  library's `html`); output unchanged.
+- `make logbook` and CI run the tests with the EPICS and migration extras (the EPICS test starts
+  a soft IOC on the loopback interface).
+
 ## v2026.10.17 (2026-10-13)
 
 - **`logbook build`: the log book as a PDF and as an HTML view** (`docs/LOGBOOK_FORMAT.md`,

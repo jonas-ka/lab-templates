@@ -22,9 +22,24 @@ uv run --project lab/logbook logbook open-items                  # issues and to
 uv run --project lab/logbook logbook schema                      # the header's JSON Schema
 ```
 
+Writing and sharing (since v2026.10.18; the format reference has a section on each):
+
+```sh
+uv run --project lab/logbook logbook new --from draft.md         # an entry from a draft; submitted if connected
+uv run --project lab/logbook logbook cite add 10.1103/PhysRevLett.123.456   # a reference by DOI or ISBN
+uv run --project lab/logbook logbook export --project FastSims --from 2026-09-01 --out sel.pdf
+uv run --project lab/logbook logbook month                       # last month's entries as a PDF
+uv run --project lab/logbook logbook digest                      # the weekly summary
+uv run --project lab/logbook logbook pull                        # this repository's copy of its projects
+uv run --project lab/logbook --extra migrate logbook migrate log.typ --into <book>   # a Typst log book
+uv run --project lab/logbook --extra epics logbook epics snapshot source-tune         # EPICS settings
+uv run --project lab/logbook logbook init-github                 # issue form and workflows into .github/
+```
+
 Exit code 0: fine (warnings and notes allowed); 1: something fails; 3: held (an attachment
 waits for the author's export-control confirmation).
 
-Tests: `uv run --project logbook --extra test pytest logbook/tests` (from lab-templates).
+Tests: `uv run --project logbook --extra test --extra epics --extra migrate pytest logbook/tests`
+(from lab-templates; the EPICS test starts a soft IOC on the loopback interface).
 The existing Typst log books (`#day`, `#note`, `#entry`) keep compiling unchanged; this is an
 alternative, not a replacement forced on anyone.
