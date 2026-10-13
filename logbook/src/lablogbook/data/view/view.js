@@ -7,7 +7,7 @@
   const wikiBy = Object.fromEntries(D.wiki.map((w) => [w.page, w]));
   const refBy = Object.fromEntries(D.references.map((r) => [r.key, r]));
   const $ = (s, el = document) => el.querySelector(s);
-  const main = $("#main"), side = $("#side");
+  const main = $("#main"), side = $("#side"), app = $(".app");
 
   // ------------------------------------------------------------------ helpers -------------
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -17,42 +17,39 @@
   const ymd = (iso) => { const [y, m, d] = String(iso).split("-").map(Number); return new Date(y, (m || 1) - 1, d || 1); };
   const fmtDay = (iso) => ymd(iso).toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   const fmtDate = (iso) => ymd(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  const fmtShort = (iso) => ymd(iso).toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
   const daysSince = (iso) => Math.round((ymd(D.today) - ymd(iso)) / 864e5);
-  const fmtLogged = (s) => { if (!s) return "not yet logged"; const d = new Date(s); return isNaN(d) ? s : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); };
+  const fmtLogged = (s) => { if (!s) return "not yet logged"; const d = new Date(s); return isNaN(d) ? s : "logged " + d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); };
   const withText = (w) => (w ? (w === "claude" ? "Claude Code" : w) : "");
   const projectsOf = (e) => [e.project].concat(e.also || []);
-  const COLORS = ["blue", "green", "purple", "orange", "pink", "brown", "yellow", "red", "gray"];
+  const COLORS = ["blue", "teal", "green"];   // lab colours for names; red and yellow stay for issues, corrections and open items
   const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
-  const KIND = { note: ["📝", "gray"], run: ["🧪", "blue"], calibration: ["📏", "green"], maintenance: ["🛠️", "brown"],
-                 incident: ["🚨", "red"], meeting: ["👥", "yellow"], correction: ["✏️", "orange"], redaction: ["🔒", "gray"] };
-  const kindEmo = (k) => (KIND[k] || ["📄"])[0];
+  const KIND = { note: "gray", run: "blue", calibration: "green", maintenance: "maroon", incident: "red", meeting: "yellow", correction: "red", redaction: "gray" };
   const tag = (text, color, href) => href ? `<a class="tag ${color}" href="${href}">${esc(text)}</a>` : `<span class="tag ${color}">${esc(text)}</span>`;
-  const kindTag = (k) => tag(k, (KIND[k] || [0, "gray"])[1], `#/?kind=${enc(k)}`);
-  const projTag = (p, sub) => tag(p + (sub ? " · " + sub : ""), hue(p), `#/project/${enc(p)}`);
+  const kindTag = (k, link = true) => tag(k, KIND[k] || "gray", link ? `#/?kind=${enc(k)}` : null);
+  const projTag = (p, sub, link = true) => tag(p + (sub ? " · " + sub : ""), hue(p), link ? `#/project/${enc(p)}` : null);
   const initials = (h) => { const n = name(h).replace(/[^\p{L}\s.-]/gu, "").split(/[\s.]+/).filter(Boolean); return ((n[0] || h)[0] + (n.length > 1 ? n[n.length - 1][0] : "")).toUpperCase(); };
-  const avatar = (h, big) => `<span class="av${big ? " big" : ""} tag ${hue(h)}" aria-hidden="true">${esc(initials(h))}</span>`;
+  const avatar = (h, big) => `<span class="av hue-${hue(h)}${big ? " big" : ""}" aria-hidden="true">${esc(initials(h))}</span>`;
   const personLink = (h) => `<a class="person" href="#/person/${enc(h)}">${avatar(h)}<span>${esc(name(h))}</span></a>`;
   const entryLink = (id, anchor, text) => {
     const e = byId[id];
     const t = text || (e ? e.title : id) + (anchor ? " (#" + anchor + ")" : "");
     return e ? `<a class="link" href="#/e/${enc(id)}${anchor ? "/" + enc(anchor) : ""}">${esc(t)}</a>` : `<span title="${esc(id)}">${esc(t)}</span>`;
   };
-  const I = {   // a few line icons
+  const I = {   // a few line icons (hidden where SVG paths cannot be drawn; labels stay)
     search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>', plus: '<path d="M12 5v14M5 12h14"/>',
-    chev: '<path d="M9 6l6 6-6 6"/>', back: '<path d="M15 6l-6 6 6 6"/>', down: '<path d="M6 9l6 6 6-6"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    chev: '<path d="M9 6l6 6-6 6"/>', down: '<path d="M6 9l6 6 6-6"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',
-    moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>', menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
-    export: '<path d="M12 15V3M7 8l5-5 5 5M5 21h14"/>', cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
-    clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>', user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
-    tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>', folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
-    tool: '<path d="M14.5 5.5a4 4 0 0 0 5 5L11 19a2.1 2.1 0 0 1-3-3z"/>', list: '<path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>',
-    link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
-    kind: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/>', play: '<path d="M7 5l11 7-11 7z"/>', check: '<circle cx="12" cy="12" r="8"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+    moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    export: '<path d="M12 15V3M7 8l5-5 5 5M5 21h14"/>', link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
     git: '<circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="9" r="2"/><path d="M6 8v8M18 11c0 4-6 3-10 6"/>',
     chat: '<path d="M4 5h16v11H9l-5 4z"/>', pen: '<path d="M4 20l4-1L19 8l-3-3L5 16z"/>',
   };
   const icon = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${I[n] || ""}</svg>`;
+  const store = { get(k) { try { return localStorage.getItem(k); } catch (err) { return null; } },
+                  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (err) { /* private window */ } } };
 
+  const FIG = /<a class="lb-crop"[^>]*?style="aspect-ratio: ([\d.]+) \/ ([\d.]+)"[^>]*><img src="([^"]*)" data-png="([^"]*)"/;
   for (const e of E) {
     e._title = norm(e.title);
     e._hay = norm([e.id, e.title, e.text, e.kind, e.project, e.subproject, (e.also || []).join(" "), (e.apparatus || []).join(" "),
@@ -60,12 +57,17 @@
       (e.parameters || []).map((p) => `${p.name} ${p.value} ${p.unit || ""}`).join(" "),
       (e.epics || []).map((s) => s.group + " " + s.pvs.map((p) => `${p.name} ${p.value} ${p.unit || ""}`).join(" ")).join(" "),
       (e.attendees || []).map(name).join(" ")].join(" "));
+    const m = FIG.exec(e.html || "");
+    e._thumb = m ? { w: m[1], h: m[2], src: m[3], png: m[4] } : null;     // the entry's first figure
   }
 
   // ------------------------------------------------------------------ figures: SVG, else PNG -
-  // Some browsers (seen in the Claude app's embedded browser) cannot draw SVG paths: they fill
-  // the whole figure. Test once with a small triangle; if a corner that must stay empty gets
-  // painted, every figure switches to the PNG saved next to its SVG.
+  // Some browsers cannot paint SVG paths on screen: the Claude app's built-in browser fills them as
+  // solid boxes, although it draws them correctly into a canvas. It names itself in the user agent
+  // ("Claude/…"), so it is recognised by that; any other browser is tested with a small triangle
+  // drawn into a canvas. Either way every figure switches to the PNG saved next to its SVG, and
+  // the line icons are hidden.
+  const CLAUDE_APP = /\bClaude\/\d/.test(navigator.userAgent);
   let usePng = false;
   const svgTest = new Promise((resolve) => {
     const img = new Image();
@@ -81,13 +83,13 @@
   });
   function figures(root) {
     if (!usePng) return;
-    document.documentElement.classList.add("no-svg-paths");   // line icons hidden too; labels stay
+    document.documentElement.classList.add("no-svg-paths");
     root.querySelectorAll("img[data-png]").forEach((im) => { if (im.dataset.png && !im.dataset.swapped) { im.src = im.dataset.png; im.dataset.swapped = "1"; } });
   }
 
   // ------------------------------------------------------------------ filters -------------
   const F = { q: "", project: new Set(), sub: new Set(), who: new Set(), app: new Set(), kind: new Set(), tag: new Set(),
-              from: "", to: "", open: false, figs: false, release: false, sort: "new" };
+              from: "", to: "", open: false, figs: false, release: false, sort: "new", full: false };
   const SETS = ["project", "sub", "who", "app", "kind", "tag"];
   const FIELDS = new Set(["kind", "project", "by", "tag", "on"]);   // kind:run project:fast by:aa tag:x on:source
   function parseQuery(q) {
@@ -135,7 +137,7 @@
     if (F.q) p.set("q", F.q);
     for (const k of SETS) if (F[k].size) p.set(k, [...F[k]].join("|"));
     for (const k of ["from", "to"]) if (F[k]) p.set(k, F[k]);
-    for (const k of ["open", "figs", "release"]) if (F[k]) p.set(k, "1");
+    for (const k of ["open", "figs", "release", "full"]) if (F[k]) p.set(k, "1");
     if (F.sort !== "new") p.set("sort", F.sort);
     const s = p.toString();
     return s ? "?" + s : "";
@@ -145,7 +147,7 @@
     F.q = p.get("q") || "";
     for (const k of SETS) F[k] = new Set((p.get(k) || "").split("|").filter(Boolean));
     F.from = p.get("from") || ""; F.to = p.get("to") || "";
-    F.open = p.has("open"); F.figs = p.has("figs"); F.release = p.has("release");
+    F.open = p.has("open"); F.figs = p.has("figs"); F.release = p.has("release"); F.full = p.has("full");
     F.sort = p.get("sort") || "new";
   }
   function count(fn, list = E) { const c = {}; for (const e of list) for (const k of fn(e)) c[k] = (c[k] || 0) + 1; return c; }
@@ -165,7 +167,7 @@
         return out; } },
     { key: "who", label: "Person", opts: () => { const c = count((e) => e.authors); return Object.keys(c).sort((a, b) => name(a).localeCompare(name(b))).map((h) => ({ set: "who", v: h, l: name(h), n: c[h] })); } },
     { key: "app", label: "Apparatus", opts: () => { const c = count((e) => e.apparatus || []); return D.apparatus.filter((a) => c[a.id]).map((a) => ({ set: "app", v: a.id, l: a.name, n: c[a.id] })); } },
-    { key: "kind", label: "Kind", opts: () => { const c = count((e) => [e.kind]); return Object.keys(c).sort().map((k) => ({ set: "kind", v: k, l: kindEmo(k) + "  " + k, n: c[k] })); } },
+    { key: "kind", label: "Kind", opts: () => { const c = count((e) => [e.kind]); return Object.keys(c).sort().map((k) => ({ set: "kind", v: k, l: k, n: c[k] })); } },
     { key: "tag", label: "Tag", opts: () => { const c = count((e) => e.tags || []); return Object.keys(c).sort((a, b) => c[b] - c[a] || a.localeCompare(b)).map((t) => ({ set: "tag", v: t, l: t, n: c[t] })); } },
     { key: "date", label: "Date" },
     { key: "more", label: "More" },
@@ -242,25 +244,45 @@
     const text = e.text || "";
     let at = 0;
     if (terms.length) { const i = norm(text).indexOf(terms[0]); if (i > 60) at = i - 60; }
-    return highlight((at ? "… " : "") + text.slice(at, at + 260), terms);
+    return highlight((at ? "… " : "") + text.slice(at, at + 280), terms);
   }
-  function row(e, terms) {
+  function markStates(e, root) {   // "open" / "resolved in …" on each issue and todo with an id
+    for (const [a, by] of Object.entries(e.resolved || {})) {
+      const el = root.querySelector(`[id="e-${CSS.escape(e.id)}--${CSS.escape(a)}"]`);
+      if (!el || el.querySelector(".state")) continue;
+      const s = document.createElement("span");
+      s.className = "state status " + (by.length ? "done" : "open");
+      s.innerHTML = by.length ? "Resolved in " + by.map((x) => entryLink(x)).join(", ") : "Open";
+      el.appendChild(s);
+    }
+  }
+  function cardMeta(e) {
     const oc = openCount(e);
-    return `<a class="row-e" href="#/e/${enc(e.id)}"><span class="emo" aria-hidden="true">${kindEmo(e.kind)}</span>` +
-      `<span class="t">${highlight(e.title, terms)}</span>${e.time ? `<span class="time">${esc(e.time)}</span>` : "<span></span>"}` +
-      `<span class="props"><span class="avs">${e.authors.map((a) => avatar(a)).join("")}</span>` +
-      `${tag(e.project + (e.subproject ? " · " + e.subproject : ""), hue(e.project))}${tag(e.kind, (KIND[e.kind] || [0, "gray"])[1])}` +
-      `${oc ? `<span class="status open">${oc} open</span>` : ""}${e.correctedBy.length ? tag("corrected", "orange") : ""}</span>` +
-      `<span class="snip">${snippet(e, terms)}</span></a>`;
+    return `<div class="meta">${e.time ? `<span class="time">${esc(e.time)}</span>` : ""}${kindTag(e.kind, false)}${projTag(e.project, e.subproject, false)}` +
+      `${(e.also || []).map((p) => projTag(p, null, false)).join("")}` +
+      `${oc ? `<span class="status open">${oc} open</span>` : ""}${e.correctedBy.length ? tag("corrected", "red") : ""}</div>`;
   }
-  function rows(list, terms, limit) {
+  function card(e, terms) {
+    const th = e._thumb;
+    const who = `<div class="who"><span class="avs">${e.authors.map((a) => avatar(a)).join("")}</span><span>${esc(e.authors.map(name).join(", "))}${e.with ? ` <span class="muted">with ${esc(withText(e.with))}</span>` : ""}</span>` +
+      `${(e.tags || []).map((t) => tag(t, hue(t))).join("")}</div>`;
+    if (F.full) {
+      return `<article class="card full" data-id="${esc(e.id)}"><a class="card-head" href="#/e/${enc(e.id)}">${cardMeta(e)}<h2>${highlight(e.title, terms)}</h2></a>${who}` +
+        `${(e.parameters || []).length ? paramTable(e) : ""}<div class="prose small">${e.html}</div></article>`;
+    }
+    return `<a class="card" href="#/e/${enc(e.id)}"><div class="card-main">${cardMeta(e)}<h2>${highlight(e.title, terms)}</h2>${who}` +
+      `<p class="snip">${snippet(e, terms)}</p></div>` +
+      (th ? `<span class="thumb" style="aspect-ratio: ${th.w} / ${th.h}"><img src="${th.src}" data-png="${th.png}" alt="" loading="lazy"></span>` : "") + `</a>`;
+  }
+  function cards(list, terms, limit) {
     if (!list.length) return `<p class="empty">No entries match.</p>`;
     let h = "", day = null;
-    for (const e of list.slice(0, limit)) {
-      if (e.date !== day) { day = e.date; h += `<div class="group">${esc(fmtDay(day))}<span class="n">${list.filter((x) => x.date === day).length}</span></div>`; }
-      h += row(e, terms);
+    const n = F.full ? Math.min(limit, 30) : limit;
+    for (const e of list.slice(0, n)) {
+      if (e.date !== day) { day = e.date; h += `<div class="group">${esc(fmtDay(day))}</div>`; }
+      h += card(e, terms);
     }
-    if (list.length > limit) h += `<button class="btn more-btn" data-more="${limit + 100}">Show ${Math.min(100, list.length - limit)} more</button>`;
+    if (list.length > n) h += `<button class="btn more-btn" data-more="${n + (F.full ? 30 : 100)}">Show ${Math.min(F.full ? 30 : 100, list.length - n)} more</button>`;
     return h;
   }
   function openItems(list) {
@@ -278,9 +300,8 @@
         return `<td${c2 ? ` class="${c2}"` : ""}>${c && c.html != null ? c.html : esc(c)}</td>`; }).join("")}</tr>`).join("") +
       `</tbody></table></div>`;
   }
-  function pageHead(emo, title, desc) {
-    return `<div class="head-emo" aria-hidden="true">${emo}</div><h1 class="title">${esc(title)}</h1>${desc ? `<p class="desc">${desc}</p>` : ""}`;
-  }
+  const paramTable = (e) => table(["Parameter", "Value", "Unit", "Note"], e.parameters.map((p) => ({ cells: [{ html: `<code class="c">${esc(p.name)}</code>` }, typeof p.value === "number" ? p.value : String(p.value), p.unit || "", p.note || ""] })));
+  const pageHead = (title, desc) => `<h1 class="title">${esc(title)}</h1>${desc ? `<p class="desc">${desc}</p>` : ""}`;
   function crumbs(parts) {
     $("#crumbs").innerHTML = parts.map((p, i) => (i ? `<span class="sep">/</span>` : "") +
       (p.href ? `<a href="${p.href}">${esc(p.t)}</a>` : `<span class="c">${esc(p.t)}</span>`)).join("");
@@ -288,15 +309,22 @@
   function toolbar(n, total, opts = {}) {
     const pills = FILTERS.map((f) => {
       const lbl = pillLabel(f);
-      return lbl ? `<button class="pill on" data-pill="${f.key}">${esc(lbl)}<span class="x" data-clear="${f.key}" title="Remove">${icon("x")}</span></button>`
+      return lbl ? `<button class="pill on" data-pill="${f.key}">${esc(lbl)}<span class="x" data-clear="${f.key}" title="Remove">×</span></button>`
                  : `<button class="pill" data-pill="${f.key}">${f.label}${icon("down")}</button>`;
     }).join("");
     return `<div class="toolbar"><label class="search">${icon("search")}<span class="sr">Search</span>` +
       `<input id="q" type="search" placeholder="Search text, settings, PVs, people…" value="${esc(F.q)}" autocomplete="off" spellcheck="false"><kbd>/</kbd></label></div>` +
       `<div class="bar2">${pills}${anyFilter() ? `<button class="btn ghost" data-act="clear">Clear</button>` : ""}` +
       `<span class="count">${n} of ${total}</span>` +
+      (opts.full ? `<label class="switch"><input type="checkbox" data-act="full" ${F.full ? "checked" : ""}><span>Full entries</span></label>` : "") +
       (opts.sort ? `<select class="select-plain" id="sort" aria-label="Order"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="relevance">Best match</option></select>` : "") +
       (opts.export ? `<button class="btn ghost" data-act="export">${icon("export")}Export</button>` : "") + `</div>`;
+  }
+  const toggle = (title, body, n, open = true) =>
+    `<details class="toggle"${open ? " open" : ""}><summary><span class="tri" aria-hidden="true">▸</span>${esc(title)}${n != null ? ` <span class="n">${n}</span>` : ""}</summary><div>${body}</div></details>`;
+  function linkList(ids, here) {
+    return `<ul class="links">${ids.map((x) => { const e = byId[x]; return e ? `<li class="${x === here ? "here" : ""}">` +
+      (x === here ? esc(e.title) : entryLink(x)) + `<span class="d">${esc(fmtDate(e.date))}</span></li>` : ""; }).join("")}</ul>`;
   }
 
   // ------------------------------------------------------------------ views ---------------
@@ -305,9 +333,9 @@
     listBase = "#/";
     const { list, Q } = filtered();
     crumbs([{ t: "Entries" }]);
-    main.innerHTML = pageHead("🗂️", "Entries", `Everything logged, newest first: ${E.length} entries by ${Object.keys(count((e) => e.authors)).length} people.`) +
-      toolbar(list.length, E.length, { sort: true, export: true }) + rows(list, Q.terms, limit);
+    main.innerHTML = pageHead("Entries") + toolbar(list.length, E.length, { sort: true, export: true, full: true }) + cards(list, Q.terms, limit);
     $("#sort").value = F.sort;
+    if (F.full) list.slice(0, 30).forEach((e) => markStates(e, main));
   }
   function viewOpen() {
     listBase = "#/open";
@@ -315,14 +343,14 @@
     const items = openItems(list).filter((x) => !Q.terms.length || Q.terms.every((t) => norm(x.text + " " + x.e.title).includes(t)));
     crumbs([{ t: "Open items" }]);
     main.className = "wide";
-    main.innerHTML = pageHead("📌", "Open items", `Issues and todos that no later entry has resolved yet. A new entry resolves one by listing it under <code class="c">resolves:</code>.`) +
+    main.innerHTML = pageHead("Open items", `Issues and todos that no later entry has resolved yet. A new entry resolves one by listing it under <code class="c">resolves:</code>.`) +
       toolbar(items.length, openItems(E).length) +
       (items.length ? table(["Item", "Entry", "Project", "Open since", "By"], items.map((x) => ({ cells: [
         { html: `<span class="status open" title="${esc(x.name)}"></span> ${highlight(x.text, Q.terms)}`, cls: "item" },
         { html: entryLink(x.e.id, x.anchor, x.e.title), cls: "entry" },
         { html: projTag(x.e.project, x.e.subproject) },
         { html: `${esc(fmtDate(x.e.date))} <span class="tag gray">${daysSince(x.e.date)} d</span>`, cls: "nowrap" },
-        { html: `<span class="avs">${x.e.authors.map((a) => avatar(a)).join("")}</span>` }] })), "t full") : `<p class="empty">Nothing open. 🎉</p>`);
+        { html: `<span class="avs">${x.e.authors.map((a) => avatar(a)).join("")}</span>` }] })), "t full") : `<p class="empty">Nothing open.</p>`);
   }
   function snapshotTable(s, other) {
     const ov = other ? Object.fromEntries(other.pvs.map((p) => [p.name, p])) : {};
@@ -343,41 +371,32 @@
     }
     return [...seen].map((i) => byId[i]).sort((a, b) => (a.date + a.id).localeCompare(b.date + b.id));
   }
-  const prop = (ic, label, value) => (value ? `<dt>${icon(ic)}${esc(label)}</dt><dd>${value}</dd>` : "");
-  const toggle = (title, body, n, open = true) =>
-    `<details class="toggle"${open ? " open" : ""}><summary>${icon("chev")}${esc(title)}${n != null ? ` <span class="n">${n}</span>` : ""}</summary><div>${body}</div></details>`;
-  function linkList(ids, here) {
-    return `<ul class="links">${ids.map((x) => { const e = byId[x]; return e ? `<li class="${x === here ? "here" : ""}"><span aria-hidden="true">${kindEmo(e.kind)}</span>` +
-      (x === here ? esc(e.title) : entryLink(x)) + `<span class="d">${esc(fmtDate(e.date))}</span></li>` : ""; }).join("")}</ul>`;
-  }
   function viewEntry(id, anchor) {
     const e = byId[id];
     if (!e) { crumbs([{ t: "Entries", href: "#/" }]); main.innerHTML = `<p class="empty">No entry ${esc(id)} in this view.</p>`; return; }
     const i = E.indexOf(e), prev = E[i - 1], next = E[i + 1], S = D.site;
     crumbs([{ t: "Entries", href: "#/" + toHash() }, { t: e.project, href: `#/project/${enc(e.project)}` }, { t: e.title }]);
-    $("#top-actions").innerHTML = (prev ? `<a class="iconbtn glyph" href="#/e/${enc(prev.id)}" title="Earlier: ${esc(prev.title)}" aria-label="Earlier entry">‹</a>` : "") +
-      (next ? `<a class="iconbtn glyph" href="#/e/${enc(next.id)}" title="Later: ${esc(next.title)}" aria-label="Later entry">›</a>` : "");
-    let h = pageHead(kindEmo(e.kind), e.title);
-    h += `<dl class="props-tbl">` +
-      prop("cal", "Date", esc(fmtDay(e.date)) + (e.time ? " · " + esc(e.time) : "")) +
-      prop("clock", "Logged", `<span class="${e.logged ? "" : "muted"}">${esc(fmtLogged(e.logged))}</span>` + (e.backfilled ? ` <span class="tag gray">backfilled ${esc(e.backfilled)}</span>` : "")) +
-      prop("user", e.authors.length > 1 ? "Authors" : "Author", e.authors.map(personLink).join("") + (e.with ? `<span class="muted">with ${esc(withText(e.with))}</span>` : "")) +
-      prop("kind", "Kind", kindTag(e.kind)) +
-      prop("folder", "Project", projectsOf(e).map((p, k) => projTag(p, k ? null : e.subproject)).join("")) +
-      prop("tool", "Apparatus", (e.apparatus || []).map((a) => tag((D.apparatus.find((x) => x.id === a) || {}).name || a, hue(a), `#/apparatus/${enc(a)}`)).join("")) +
-      prop("tag", "Tags", (e.tags || []).map((t) => tag(t, hue(t), `#/?tag=${enc(t)}`)).join("")) +
-      prop("play", "Runs", (e.runs || []).map((r) => `<code class="c">${esc(r)}</code>`).join(" ")) +
-      prop("user", "Attendees", (e.attendees || []).map(personLink).join("")) +
-      prop("check", "Valid until", e.valid_until ? esc(fmtDate(e.valid_until)) + (e.valid_until < D.today ? ` <span class="tag red">expired</span>` : "") : "") +
-      prop("export", "Release", e.release === "candidate" ? tag("candidate", "purple") : "") +
-      prop("git", "Migrated from", e.migrated_from ? `<code class="c">${esc(e.migrated_from)}</code>` : "") + `</dl>`;
-    h += `<div class="actions">`;
+    let acts = "";
     if (S) {
-      h += `<a class="btn ghost" href="${e.pr ? `${S.repo}/pull/${e.pr}` : `${S.repo}/pulls?q=${enc(e.id)}`}">${icon("chat")}Discuss</a>`;
-      h += `<a class="btn ghost" href="${S.new_entry}&title=${enc("Correction: " + e.title)}&corrects=${enc(e.id)}&project=${enc(e.project)}">${icon("pen")}Correct this entry</a>`;
-      h += `<a class="btn ghost" href="${S.repo}/blob/${S.branch}/${e.path.split("/").map(enc).join("/")}">${icon("git")}Source</a>`;
+      acts += `<a class="btn ghost sm" href="${e.pr ? `${S.repo}/pull/${e.pr}` : `${S.repo}/pulls?q=${enc(e.id)}`}" title="The pull request that added this entry">${icon("chat")}Discuss</a>`;
+      acts += `<a class="btn ghost sm" href="${S.new_entry}&title=${enc("Correction: " + e.title)}&corrects=${enc(e.id)}&project=${enc(e.project)}" title="Write a correction entry">${icon("pen")}Correct</a>`;
+      acts += `<a class="btn ghost sm" href="${S.repo}/blob/${S.branch}/${e.path.split("/").map(enc).join("/")}" title="The Markdown file">${icon("git")}Source</a>`;
     }
-    h += `<button class="btn ghost" data-act="cite-id" data-id="${esc(e.id)}">${icon("link")}<span>Copy link for another entry</span></button></div><hr class="div">`;
+    acts += `<button class="btn ghost sm" data-act="cite-id" data-id="${esc(e.id)}" title="Copy [[id]] to link this entry from another one">${icon("link")}<span>Copy link</span></button>`;
+    $("#top-actions").innerHTML = acts + (prev ? `<a class="iconbtn glyph" href="#/e/${enc(prev.id)}" title="Earlier: ${esc(prev.title)}" aria-label="Earlier entry">‹</a>` : "") +
+      (next ? `<a class="iconbtn glyph" href="#/e/${enc(next.id)}" title="Later: ${esc(next.title)}" aria-label="Later entry">›</a>` : "");
+    const apps = (e.apparatus || []).map((a) => tag((D.apparatus.find((x) => x.id === a) || {}).name || a, hue(a), `#/apparatus/${enc(a)}`)).join("");
+    const extra = [esc(fmtLogged(e.logged)), e.backfilled && `backfilled ${esc(e.backfilled)}`,
+      (e.runs || []).length && `runs ${e.runs.map((r) => `<code class="c">${esc(r)}</code>`).join(", ")}`,
+      (e.attendees || []).length && `attendees ${e.attendees.map((a) => esc(name(a))).join(", ")}`,
+      e.valid_until && `valid until ${esc(fmtDate(e.valid_until))}${e.valid_until < D.today ? ` <span class="tag red">expired</span>` : ""}`,
+      e.release === "candidate" && "release candidate", e.migrated_from && `migrated from <code class="c">${esc(e.migrated_from)}</code>`].filter(Boolean);
+    let h = `<header class="entry-head"><h1 class="title">${esc(e.title)}</h1>` +
+      `<div class="meta"><span class="date">${esc(fmtShort(e.date))}${e.time ? " · " + esc(e.time) : ""}</span>` +
+      `${e.authors.map(personLink).join("")}${e.with ? `<span class="muted">with ${esc(withText(e.with))}</span>` : ""}` +
+      `${kindTag(e.kind)}${projectsOf(e).map((p, k) => projTag(p, k ? null : e.subproject)).join("")}${apps}` +
+      `${(e.tags || []).map((t) => tag(t, hue(t), `#/?tag=${enc(t)}`)).join("")}</div>` +
+      `<div class="meta2">${extra.join(" · ")}</div></header>`;
     for (const c of e.correctedBy) {
       const ce = byId[c];
       h += `<div class="banner correct"><b>Corrected</b> by ${entryLink(c)}${ce ? `<span class="q">${esc((ce.text || "").slice(0, 280))}${ce.text.length > 280 ? " …" : ""}</span>` : ""}</div>`;
@@ -389,7 +408,7 @@
       const [tid, a] = r.split("#"), t = byId[tid], b = t && (t.blocks || {})[a];
       h += `<div class="banner resolve"><b>Resolves</b> ${entryLink(tid, a)}${b ? `<span class="q">${esc(b.text)}</span>` : ""}</div>`;
     }
-    if ((e.parameters || []).length) h += table(["Parameter", "Value", "Unit", "Note"], e.parameters.map((p) => ({ cells: [{ html: `<code class="c">${esc(p.name)}</code>` }, typeof p.value === "number" ? p.value : String(p.value), p.unit || "", p.note || ""] })));
+    if ((e.parameters || []).length) h += paramTable(e);
     h += `<div class="prose" id="body">${e.html}</div>`;
     e.epics.forEach((s, k) => {
       const others = E.filter((x) => x !== e).flatMap((x) => x.epics.filter((y) => y.group === s.group).map((y) => ({ x, y })));
@@ -402,20 +421,16 @@
     const files = e.data.map((d) => ({ cells: [{ html: `<a class="link" href="${esc(d.url)}">${esc(d.file)}</a>` }, "data", d.source || ""] }))
       .concat(e.attachments.map((a) => ({ cells: [{ html: `<a class="link" href="${esc(a.url)}">${esc(a.file)}</a>` }, "attachment", a.description || ""] })));
     if (files.length) h += toggle("Files", table(["File", "", "Source / note"], files), files.length);
-    if (Object.keys(e.refs || {}).length) h += toggle("In the repository", `<dl class="kv">${Object.entries(e.refs).map(([k, v]) => `<dt>${esc(k)}</dt><dd><code class="c">${esc(v)}</code></dd>`).join("")}</dl>`, Object.keys(e.refs).length);
-    if (e.cites.length) h += toggle("Cited", `<ul class="links">${e.cites.map((k) => { const r = refBy[k]; return `<li><span aria-hidden="true">📚</span>${r ? (r.doi ? `<a href="${esc(r.doi)}">${esc(r.cite)}</a>` : esc(r.cite)) : esc(k)}</li>`; }).join("")}</ul>`, e.cites.length);
+    // what surrounds the entry: in its own box, so it is not read as part of the entry
+    let rel = "";
     const th = thread(e);
-    if (th.length > 1) h += toggle("Thread", linkList(th.map((x) => x.id), e.id), th.length);
-    if (e.backlinks.length) h += toggle("Linked from", linkList(e.backlinks), e.backlinks.length);
+    if (th.length > 1) rel += toggle("Thread", linkList(th.map((x) => x.id), e.id), th.length);
+    if (e.backlinks.length) rel += toggle("Linked from", linkList(e.backlinks), e.backlinks.length);
+    if (e.cites.length) rel += toggle("Cited", `<ul class="links">${e.cites.map((k) => { const r = refBy[k]; return `<li>${r ? (r.doi ? `<a href="${esc(r.doi)}">${esc(r.cite)}</a>` : esc(r.cite)) : esc(k)}</li>`; }).join("")}</ul>`, e.cites.length);
+    if (Object.keys(e.refs || {}).length) rel += toggle("In the repository", `<dl class="kv">${Object.entries(e.refs).map(([k, v]) => `<dt>${esc(k)}</dt><dd><code class="c">${esc(v)}</code></dd>`).join("")}</dl>`, Object.keys(e.refs).length);
+    if (rel) h += `<aside class="related" aria-label="Related"><div class="related-h">Around this entry</div>${rel}</aside>`;
     main.innerHTML = h;
-    for (const [a, by] of Object.entries(e.resolved || {})) {
-      const el = document.getElementById("e-" + e.id + "--" + a);
-      if (!el) continue;
-      const s = document.createElement("span");
-      s.className = "state status " + (by.length ? "done" : "open");
-      s.innerHTML = by.length ? "Resolved in " + by.map((x) => entryLink(x)).join(", ") : "Open";
-      el.appendChild(s);
-    }
+    markStates(e, main);
     main.querySelectorAll("select[data-snap]").forEach((sel) => sel.addEventListener("change", () => {
       const k = +sel.dataset.snap, o = e["_others" + k][sel.value];
       $("#snap-" + k).innerHTML = snapshotTable(e.epics[k], o ? o.y : null);
@@ -428,13 +443,13 @@
     if (!w) return "";
     const S = D.site;
     const html = w.html.replace(/^\s*<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/, "");   // the page's title is shown above it
-    return `<div class="prose">${html}</div>` + (S ? `<div class="actions"><a class="btn ghost" href="${S.repo}/edit/${S.branch}/${S.wiki}/${page.split("/").map(enc).join("/")}.md">${icon("pen")}Edit this page</a></div>` : "");
+    return `<div class="prose">${html}</div>` + (S ? `<p><a class="btn ghost sm" href="${S.repo}/edit/${S.branch}/${S.wiki}/${page.split("/").map(enc).join("/")}.md">${icon("pen")}Edit this page</a></p>` : "");
   }
   function viewProjects() {
     crumbs([{ t: "Projects" }]);
     const pc = count(projectsOf), open = openItems(E);
-    main.innerHTML = pageHead("📁", "Projects", "Each project's page, entries and open items.") + `<div class="gallery">` + D.projects.map((p) =>
-      `<a class="card" href="#/project/${enc(p.name)}"><span class="emo">📁</span><b>${esc(p.name)}</b><span>${pc[p.name] || 0} entries · ${open.filter((x) => projectsOf(x.e).includes(p.name)).length} open</span></a>`).join("") + `</div>`;
+    main.innerHTML = pageHead("Projects") + `<div class="gallery">` + D.projects.map((p) =>
+      `<a class="tile" href="#/project/${enc(p.name)}"><b>${esc(p.name)}</b><span>${pc[p.name] || 0} entries · ${open.filter((x) => projectsOf(x.e).includes(p.name)).length} open</span></a>`).join("") + `</div>`;
   }
   function openList(open) {
     return open.length ? `<ul class="links">${open.map((x) => `<li><span class="status open"></span>${esc(x.text)}<span class="d">${entryLink(x.e.id, x.anchor, fmtDate(x.e.date))}</span></li>`).join("")}</ul>`
@@ -445,19 +460,17 @@
     const list = E.filter((e) => projectsOf(e).includes(n)).reverse();
     const open = openItems(list);
     crumbs([{ t: "Projects", href: "#/projects" }, { t: n }]);
-    main.innerHTML = pageHead("📁", n) + `<dl class="props-tbl">` +
-      prop("list", "Entries", `${list.length} · <a class="link" href="#/?project=${enc(n)}">filter the list</a>`) +
-      prop("folder", "Subprojects", p.subprojects.map((s) => tag(s, hue(s), `#/?project=${enc(n)}&sub=${enc(n + "/" + s)}`)).join("")) +
-      prop("check", "Open items", `${open.length}`) + `</dl><hr class="div">` +
+    main.innerHTML = `<header class="entry-head"><h1 class="title">${esc(n)}</h1><div class="meta"><span>${list.length} entries</span>` +
+      `<a class="link" href="#/?project=${enc(n)}">filter the list</a>${p.subprojects.map((s) => tag(s, hue(s), `#/?project=${enc(n)}&sub=${enc(n + "/" + s)}`)).join("")}` +
+      `<span class="status open">${open.length} open</span></div></header>` +
       (p.wiki ? wikiHtml(p.wiki) : `<p class="desc">No project page in the wiki yet.</p>`) +
-      toggle("Open items", openList(open), open.length) +
-      toggle("Latest entries", rows(list, [], 12), list.length);
+      toggle("Open items", openList(open), open.length) + toggle("Latest entries", cards(list, [], 12), list.length);
   }
   function viewApparatusList() {
     crumbs([{ t: "Apparatus" }]);
     const ac = count((e) => e.apparatus || []);
-    main.innerHTML = pageHead("🧰", "Apparatus", "What each part of the setup has been through: calibrations, maintenance, incidents, settings.") +
-      (D.apparatus.length ? `<div class="gallery">` + D.apparatus.map((a) => `<a class="card" href="#/apparatus/${enc(a.id)}"><span class="emo">🔧</span><b>${esc(a.name)}</b><span>${ac[a.id] || 0} entries</span></a>`).join("") + `</div>` : `<p class="empty">No apparatus registered.</p>`);
+    main.innerHTML = pageHead("Apparatus", "What each part of the setup has been through: calibrations, maintenance, incidents, settings.") +
+      (D.apparatus.length ? `<div class="gallery">` + D.apparatus.map((a) => `<a class="tile" href="#/apparatus/${enc(a.id)}"><b>${esc(a.name)}</b><span>${ac[a.id] || 0} entries</span></a>`).join("") + `</div>` : `<p class="empty">No apparatus registered.</p>`);
   }
   function viewApparatus(id) {
     const a = D.apparatus.find((x) => x.id === id) || { id, name: id };
@@ -466,36 +479,37 @@
     const incidents = list.filter((e) => e.kind === "incident"), snaps = list.filter((e) => e.epics.length);
     crumbs([{ t: "Apparatus", href: "#/apparatus" }, { t: a.name }]);
     const li = (xs) => (xs.length ? linkList(xs.map((e) => e.id)) : `<p class="desc">None.</p>`);
-    main.innerHTML = pageHead("🔧", a.name) + `<dl class="props-tbl">` + prop("list", "Entries", `${list.length} · <a class="link" href="#/?app=${enc(id)}">filter the list</a>`) + `</dl><hr class="div">` +
+    main.innerHTML = `<header class="entry-head"><h1 class="title">${esc(a.name)}</h1><div class="meta"><span>${list.length} entries</span><a class="link" href="#/?app=${enc(id)}">filter the list</a></div></header>` +
       (a.wiki ? wikiHtml(a.wiki) : "") +
       toggle("Current calibrations and maintenance", li(current), current.length) + toggle("Incidents", li(incidents), incidents.length) +
-      toggle("EPICS snapshots", li(snaps), snaps.length) + toggle("All entries", rows(list, [], 12), list.length, false);
+      toggle("EPICS snapshots", li(snaps), snaps.length) + toggle("All entries", cards(list, [], 12), list.length, false);
   }
   function viewPeople() {
     crumbs([{ t: "People" }]);
     const wc = count((e) => e.authors);
-    main.innerHTML = pageHead("👥", "People") + `<div class="gallery">` + Object.keys(wc).sort((a, b) => name(a).localeCompare(name(b))).map((w) =>
-      `<a class="card" href="#/person/${enc(w)}">${avatar(w)}<b>${esc(name(w))}</b><span>${wc[w]} entries</span></a>`).join("") + `</div>`;
+    main.innerHTML = pageHead("People") + `<div class="gallery">` + Object.keys(wc).sort((a, b) => name(a).localeCompare(name(b))).map((w) =>
+      `<a class="tile person-tile" href="#/person/${enc(w)}">${avatar(w)}<span class="pt"><b>${esc(name(w))}</b><span>${wc[w]} entries</span></span></a>`).join("") + `</div>`;
   }
   function viewPerson(h) {
     const list = E.filter((e) => e.authors.includes(h)).reverse();
     crumbs([{ t: "People", href: "#/people" }, { t: name(h) }]);
-    main.innerHTML = `<div class="head-emo">${avatar(h, true)}</div><h1 class="title">${esc(name(h))}</h1>` +
-      `<p class="desc">${list.length} entries · <a class="link" href="#/?who=${enc(h)}">filter the list</a></p>` + rows(list, [], limit);
+    main.innerHTML = `<header class="entry-head person-head">${avatar(h, true)}<div><h1 class="title">${esc(name(h))}</h1>` +
+      `<div class="meta"><span>${list.length} entries</span><a class="link" href="#/?who=${enc(h)}">filter the list</a></div></div></header>` + cards(list, [], limit);
   }
   function viewWikiList() {
     crumbs([{ t: "Wiki" }]);
     const groups = {};
     for (const w of D.wiki) { const g = w.page.includes("/") ? w.page.split("/")[0] : "pages"; (groups[g] = groups[g] || []).push(w); }
-    main.innerHTML = pageHead("📖", "Wiki", "How things are now: projects, apparatus, procedures. Living pages, changed through pull requests.") +
+    main.innerHTML = pageHead("Wiki", "How things are now: projects, apparatus, procedures. Living pages, changed through pull requests.") +
       (D.wiki.length ? Object.keys(groups).sort().map((g) => toggle(g[0].toUpperCase() + g.slice(1), `<ul class="links">${groups[g].map((w) =>
-        `<li><span aria-hidden="true">📄</span><a href="#/wiki/${w.page.split("/").map(enc).join("/")}">${esc(w.title)}</a></li>`).join("")}</ul>`, groups[g].length)).join("") : `<p class="empty">The wiki is empty.</p>`);
+        `<li><a href="#/wiki/${w.page.split("/").map(enc).join("/")}">${esc(w.title)}</a></li>`).join("")}</ul>`, groups[g].length)).join("") : `<p class="empty">The wiki is empty.</p>`);
   }
   function viewWiki(page) {
     const w = wikiBy[page];
     crumbs([{ t: "Wiki", href: "#/wiki" }, { t: w ? w.title : page }]);
     if (!w) { main.innerHTML = `<p class="empty">No wiki page ${esc(page)}.</p>`; return; }
-    main.innerHTML = pageHead("📄", w.title) + wikiHtml(page) + (w.backlinks.length ? toggle("Linked from", linkList(w.backlinks), w.backlinks.length) : "");
+    main.innerHTML = pageHead(w.title) + wikiHtml(page) +
+      (w.backlinks.length ? `<aside class="related"><div class="related-h">Around this page</div>${toggle("Linked from", linkList(w.backlinks), w.backlinks.length)}</aside>` : "");
     window.scrollTo(0, 0);
   }
   function viewRefs() {
@@ -503,7 +517,7 @@
     crumbs([{ t: "References" }]);
     const Q = parseQuery(F.q);
     const refs = D.references.filter((r) => Q.terms.every((t) => norm(r.cite + " " + r.key + " " + (r.html || "")).includes(t)));
-    main.innerHTML = pageHead("📚", "References", `The lab's reference list. Cite one in an entry as <code class="c">[@Key]</code>.`) +
+    main.innerHTML = pageHead("References", `The lab's reference list. Cite one in an entry as <code class="c">[@Key]</code>.`) +
       `<div class="toolbar"><label class="search">${icon("search")}<span class="sr">Search</span><input id="q" type="search" placeholder="Search references…" value="${esc(F.q)}" autocomplete="off"><kbd>/</kbd></label></div>` +
       refs.map((r) => `<div class="ref"><div>${r.doi ? `<a class="short" href="${esc(r.doi)}">${esc(r.cite)}</a>` : `<span class="short">${esc(r.cite)}</span>`} ${tag("@" + r.key, "gray")}</div>` +
         `<div class="full">${r.html || ""}</div>` + (r.citedBy.length ? `<div class="cited">Cited in ${r.citedBy.map((b) => entryLink(b)).join(" · ")}</div>` : "") + `</div>`).join("");
@@ -536,9 +550,10 @@
       `<span class="emo" aria-hidden="true">${emo}</span><span class="lbl">${esc(label)}</span>${n != null ? `<span class="n">${n}</span>` : ""}</a>`;
     const S = D.site, pc = count(projectsOf);
     let h = `<div class="ws"><span class="logo" aria-hidden="true">${esc((D.title.match(/\p{L}/u) || ["L"])[0].toUpperCase())}</span>` +
-      `<div><b>${esc(D.title)}</b><span>${E.length} entries</span></div></div>` +
-      `<button class="nav" data-act="search">${icon("search")}<span class="lbl">Search</span><kbd>/</kbd></button>` +
-      (S ? `<a class="nav" href="${S.new_entry}">${icon("plus")}<span class="lbl">New entry</span></a>` : "") +
+      `<div class="ws-t"><b>${esc(D.title)}</b><span>${E.length} entries</span></div>` +
+      `<button class="iconbtn glyph" data-act="collapse" title="Hide the sidebar" aria-label="Hide the sidebar">«</button></div>` +
+      `<button class="nav" data-act="search"><span class="emo" aria-hidden="true">🔍</span><span class="lbl">Search</span><kbd>/</kbd></button>` +
+      (S ? `<a class="nav" href="${S.new_entry}"><span class="emo" aria-hidden="true">➕</span><span class="lbl">New entry</span></a>` : "") +
       `<div style="height:8px"></div>` +
       nav("#/", "🗂️", "Entries", E.length) + nav("#/open", "📌", "Open items", openItems(E).length) +
       nav("#/people", "👥", "People") + nav("#/refs", "📚", "References", D.references.length || null);
@@ -550,16 +565,20 @@
       for (const w of D.wiki.filter((w) => !/^(projects|apparatus)\//.test(w.page))) h += nav(`#/wiki/${w.page.split("/").map(enc).join("/")}`, "📄", w.title);
       h += nav("#/wiki", "📖", "All pages", D.wiki.length, "muted");
     }
-    h += `<div class="grow"></div><button class="nav muted" data-act="theme">${icon(document.documentElement.dataset.theme === "dark" ? "sun" : "moon")}<span class="lbl">${themeLabel()}</span></button>` +
+    h += `<div class="grow"></div><button class="nav muted" data-act="theme"><span class="emo" aria-hidden="true">${document.documentElement.dataset.theme === "dark" ? "🌙" : document.documentElement.dataset.theme === "light" ? "☀️" : "🌗"}</span><span class="lbl">${themeLabel()}</span></button>` +
       `<div class="foot">Built ${esc(D.generated.replace("T", " "))} · logbook ${esc(D.version)}</div>`;
     side.innerHTML = h;
   }
   const themeLabel = () => ({ dark: "Dark", light: "Light" }[document.documentElement.dataset.theme] || "Theme as the system");
   function theme(t) {
     if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
-    try { t ? localStorage.setItem("lb-theme", t) : localStorage.removeItem("lb-theme"); } catch (err) { /* private window */ }
+    store.set("lb-theme", t || null);
   }
-  try { const t = localStorage.getItem("lb-theme"); if (t) document.documentElement.dataset.theme = t; } catch (err) { /* none */ }
+  { const t = store.get("lb-theme"); if (t) document.documentElement.dataset.theme = t; }
+  // the sidebar: folded in and out with the button at its top (or the ☰ in the top bar); remembered
+  const narrow = () => matchMedia("(max-width: 900px)").matches;
+  function setCollapsed(c) { app.classList.toggle("collapsed", c); store.set("lb-side", c ? "hidden" : null); }
+  if (store.get("lb-side") === "hidden") app.classList.add("collapsed");
 
   // ------------------------------------------------------------------ routing --------------
   function route() {
@@ -615,7 +634,7 @@
   });
   main.addEventListener("click", (ev) => {
     const clr = ev.target.closest("[data-clear]");
-    if (clr) { ev.stopPropagation(); clearFilter(clr.dataset.clear); closePop(); go(); return; }
+    if (clr) { ev.stopPropagation(); ev.preventDefault(); clearFilter(clr.dataset.clear); closePop(); go(); return; }
     const pill = ev.target.closest("[data-pill]");
     if (pill) { openPop(pill.dataset.pill, pill); return; }
     const t = ev.target.closest("[data-act],[data-more]");
@@ -623,22 +642,33 @@
     if (t.dataset.more) { limit = +t.dataset.more; render(); }
     else if (t.dataset.act === "export") exportDialog();
     else if (t.dataset.act === "clear") { fromHash(""); go(); }
-    else if (t.dataset.act === "cite-id") {
-      const text = "[[" + t.dataset.id + "]]", label = t.querySelector("span");
-      try { navigator.clipboard.writeText(text); label.textContent = "Copied " + text; } catch (err) { label.textContent = text; }
-    }
   });
-  main.addEventListener("change", (ev) => { if (ev.target.id === "sort") { F.sort = ev.target.value; go(); } });
+  main.addEventListener("change", (ev) => {
+    if (ev.target.id === "sort") { F.sort = ev.target.value; go(); }
+    if (ev.target.dataset.act === "full") { F.full = ev.target.checked; limit = 100; go(); }
+  });
+  $("#top-actions").addEventListener("click", (ev) => {
+    const t = ev.target.closest("[data-act='cite-id']");
+    if (!t) return;
+    const text = "[[" + t.dataset.id + "]]", label = t.querySelector("span");
+    try { navigator.clipboard.writeText(text); label.textContent = "Copied"; } catch (err) { label.textContent = text; }
+  });
   side.addEventListener("click", (ev) => {
     const t = ev.target.closest("[data-act]");
     if (!t) return;
     if (t.dataset.act === "search") focusSearch();
+    if (t.dataset.act === "collapse") { if (narrow()) { side.classList.remove("open"); $("#scrim").classList.remove("open"); } else setCollapsed(true); }
     if (t.dataset.act === "theme") { const c = document.documentElement.dataset.theme; theme(c === undefined ? "dark" : c === "dark" ? "light" : undefined); renderSide(); }
   });
   $("#menu").textContent = "☰";   // a text glyph: drawn by every browser
-  $("#menu").addEventListener("click", () => { side.classList.add("open"); $("#scrim").classList.add("open"); });
+  $("#menu").setAttribute("title", "Show or hide the sidebar");
+  $("#menu").addEventListener("click", () => {
+    if (narrow()) { side.classList.add("open"); $("#scrim").classList.add("open"); }
+    else setCollapsed(!app.classList.contains("collapsed"));
+  });
   $("#scrim").addEventListener("click", () => { side.classList.remove("open"); $("#scrim").classList.remove("open"); });
   window.addEventListener("hashchange", render);
   render();
-  svgTest.then((ok) => { usePng = !ok; figures(main); });
+  if (CLAUDE_APP) { usePng = true; figures(main); }
+  svgTest.then((ok) => { usePng = usePng || !ok; figures(main); });
 })();
