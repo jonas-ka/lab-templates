@@ -1,7 +1,8 @@
 // The information strip that `matplotlib/labfig.py` saves below a figure (who made it, when,
 // with which template, where it lives) is for the file, not for the document: the themes cut
-// it off. A catalog entry says how tall its strip is (`info_strip: 0.4`, inches at the file's
-// natural size); entries without it are shown whole, as before.
+// it off. A catalog entry can say how tall its strip is (`info_strip: 0.4`, inches at the file's
+// natural size); otherwise the strip is found in the SVG itself (`detect-strip`). Files
+// without a strip are shown whole, as before.
 
 /// The image at `path` without its bottom `strip` (a length at the file's natural size), as
 /// large as fits in `width` x `height` (each a length, ratio, relative length, or auto),
@@ -19,5 +20,19 @@
     place(top + left, image(path, width: nat.width * k, height: nat.height * k, fit: "stretch", alt: alt)))
 })
 
-/// The strip height of a catalog entry, as a length (0pt when the entry has none).
-#let entry-strip(e) = e.at("info_strip", default: 0) * 1in
+/// The strip height found in an SVG file itself: labfig writes the marker
+/// "labfig info_strip_in=0.4" into the file's metadata (since v2026.10.11); files from
+/// v2026.10.10 carry no marker but link to the lab-templates repository in their strip.
+/// Other files (and PDF or PNG files, which Typst cannot search) give 0pt.
+#let detect-strip(path) = {
+  if not lower(path).ends-with(".svg") { return 0pt }
+  let s = read(path)
+  let m = s.match(regex("labfig info_strip_in=([0-9.]+)"))
+  if m != none { float(m.captures.at(0)) * 1in } else if s.contains("lab-templates/tree/") { 0.4in } else { 0pt }
+}
+
+/// The strip to cut: an explicit length, or `auto` = found in the file.
+#let resolve-strip(path, strip) = if strip == auto { detect-strip(path) } else { strip }
+
+/// The strip height of a catalog entry: its `info_strip` field, else `auto` (found in the file).
+#let entry-strip(e) = if "info_strip" in e { e.info_strip * 1in } else { auto }

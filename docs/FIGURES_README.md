@@ -66,8 +66,8 @@ version follows this one.
    cannot hold links). It keeps the figure's origin with the file wherever it travels. **Cut it
    off when the figure goes into a paper, talk or poster:** it is the bottom 0.4 in, under the
    dashed line (crop in the slide or layout program, or `trim` in LaTeX). The lab's Typst themes
-   cut it automatically when the catalog entry says `info_strip: 0.4`. `info=False` saves
-   without it.
+   cut it automatically: they find it in the SVG (labfig writes a marker into the files'
+   metadata), and a catalog entry can also say `info_strip: 0.4`. `info=False` saves without it.
 
    **The data fingerprint** is a checksum (SHA-256) over the names and contents of the files
    given as `data=`; the strip shows its first 7 characters ("Data: 3f2a9c1"). The same data

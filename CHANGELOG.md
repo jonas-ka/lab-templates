@@ -2,8 +2,15 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
-## Unreleased
+## v2026.10.11 (2026-10-13)
 
+- **Themes find the information strip themselves:** `fig` and `cat-fig` (slides, notes, posters)
+  now cut the strip of any figure saved with `labfig`, also without a catalog `info_strip` field:
+  they read the SVG and find the marker `labfig info_strip_in=0.4`, which `labfig.save` now writes
+  into the PDF, SVG and PNG metadata, or, for files from v2026.10.10, the link to this repository
+  in the strip. `strip: auto` is the new default of `fig`; `0pt` keeps a file whole; a catalog
+  `info_strip` still wins. Files without a strip are shown as before. (PDF-only and PNG-only
+  catalog entries need the field: Typst cannot search those files.)
 - `scripts/propagate.sh`: after a consumer's build check, the files the check rewrote (build
   reports, "generated on" lines) are restored, so the next run does not skip that repository
   for "uncommitted changes". The tree was clean before the pull, so nothing else is touched.

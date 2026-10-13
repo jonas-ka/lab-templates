@@ -35,8 +35,9 @@ file), under a dashed cut line: who made the figure and when, who changed it las
 version; the lab-templates version and git id it was made with (linked to the repository), the
 data fingerprint, and the Drive folder (the name as text, linked in PDF and SVG; a PNG keeps
 only the text). Cut the strip off when the figure goes into a paper, talk or poster: crop the
-bottom `STRIP_IN` inches, or let the lab themes do it (catalog field `info_strip: 0.4`).
-`info=False` saves without the strip.
+bottom `STRIP_IN` inches, or let the lab themes do it: they find the strip by the marker
+"labfig info_strip_in=0.4" that `save` writes into the PDF, SVG and PNG metadata (or by a
+catalog field `info_strip: 0.4`). `info=False` saves without the strip.
 
 The Drive link is passed in by whoever saves the figure; it never belongs in lab-templates
 (public). Records hold no absolute paths (paths relative to the figure folder or the script's
@@ -350,7 +351,9 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
         artists = _add_strip(fig, content, [line1, line2], raster_dpi=dpi) if info else []
         try:
             with plt.rc_context({"svg.fonttype": "path" if svg_text == "path" else "none"}):
-                fig.savefig(folder / f"{stem}.{ext}", bbox_inches=box, **({"dpi": dpi} if dpi else {}))
+                # the marker lets the lab themes find (and cut) the strip in any copy of the file
+                meta = {"Keywords": f"labfig info_strip_in={STRIP_IN}"} if info else {}
+                fig.savefig(folder / f"{stem}.{ext}", bbox_inches=box, metadata=meta, **({"dpi": dpi} if dpi else {}))
         finally:
             for a in artists:
                 a.remove()

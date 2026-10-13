@@ -26,7 +26,7 @@
 //   typst compile --root . --features html --format html --input mode=student <file>.typ
 
 #import "tokens.typ": *
-#import "figure-strip.typ": strip-image, entry-strip
+#import "figure-strip.typ": strip-image, entry-strip, resolve-strip
 #import "speak-math.typ": speak, apply-alts, math-body, spoken-eq
 
 #let mode = sys.inputs.at("mode", default: "student")
@@ -55,8 +55,10 @@
 // ---------------------------------------------------------------- figures
 /// A numbered figure with mandatory alt text and a caption:
 ///   #fig("/assets/figures/x.svg", alt: "...", width: 70%, caption: [Free-body diagram of the block.])
-/// `strip`: the height of an information strip below the figure (labfig.py), cut off here.
-#let fig(path, alt: none, width: 80%, caption: none, label: none, strip: 0pt) = {
+/// `strip`: the height of an information strip below the figure (labfig.py), cut off here;
+/// `auto` finds it in the file (SVG), `0pt` keeps the file whole.
+#let fig(path, alt: none, width: 80%, caption: none, label: none, strip: auto) = {
+  let strip = resolve-strip(path, strip)
   assert(alt != none, message: "every figure needs alt text")
   let img = if strip > 0pt { strip-image(path, strip: strip, alt: alt, width: width) } else { image(path, width: width, alt: alt) }
   let f = figure(img, caption: caption)

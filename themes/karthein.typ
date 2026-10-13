@@ -26,7 +26,7 @@
 
 // Palette, panels, radii, `lifted`, `caption-line`: shared with the poster and notes themes.
 #import "tokens.typ": *
-#import "figure-strip.typ": strip-image, entry-strip
+#import "figure-strip.typ": strip-image, entry-strip, resolve-strip
 // Spoken math: `speak(body)` drafts an equation's alt text; `eq(alt: auto)` uses it.
 #import "speak-math.typ": speak, apply-alts, math-body, spoken-eq
 
@@ -61,8 +61,10 @@
 ///   #fig("/assets/figures/x.svg", alt: "...", width: 60%)
 /// It never grows taller than `max-height` (the slide body under the header is ~300pt),
 /// so a tall figure scales down instead of pushing the slide onto a second page.
-/// `strip`: the height of an information strip below the figure (labfig.py), cut off here.
-#let fig(path, alt: none, width: 100%, max-height: 290pt, caption: none, strip: 0pt) = {
+/// `strip`: the height of an information strip below the figure (labfig.py), cut off here;
+/// `auto` finds it in the file (SVG), `0pt` keeps the file whole.
+#let fig(path, alt: none, width: 100%, max-height: 290pt, caption: none, strip: auto) = {
+  let strip = resolve-strip(path, strip)
   assert(alt != none, message: "every figure needs alt text (catalog `alt`)")
   // No `figure` element: slides need no figure numbers, and numbered figures inside
   // pause steps keep Typst's layout from converging.
