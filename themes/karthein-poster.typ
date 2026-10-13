@@ -1,6 +1,6 @@
 // Karthein Lab poster theme (A0 portrait by default), matching the slide theme's palette,
 // fonts and diagrams. First used for the Texas A&M System AI Research & Innovation Meeting
-// poster (talks/2026-10-tamus-ai-poster).
+// poster (talks/2610.06.tamus-ai-poster).
 //
 // Usage (talks/<slug>/poster.typ):
 //   #import "/themes/karthein-poster.typ": *

@@ -2,6 +2,12 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## Unreleased
+
+- `scripts/propagate.sh`: the talks-repo build check compiles the newest `talks/*.group-meeting`
+  deck instead of a fixed folder (talk folders are now named `YYMM.DD.<name>`, JK 2026-10-13);
+  the poster theme's header comment names the renamed poster folder.
+
 ## v2026.10.8 (2026-10-13)
 
 - **Example figure redrawn** (`plot-us-cpi-u-yoy-2023-2026`, version 2): `plot_cpi.py` now starts
