@@ -2,6 +2,17 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.12 (2026-10-13)
+
+From redrawing the lab's Drive figures with `labfig`:
+- `labfig.save` works on a figure the script already closed (`plt.close(fig)` drops the canvas
+  in matplotlib 3.11; `save` gives it an Agg canvas again; the drawing is unchanged).
+- The record keeps the **command line** the script was run with (`command:`; absolute paths
+  made relative to the figure folder or shortened to the file name) and an optional `note=`
+  for anything else needed to redraw exactly (e.g. an environment setting).
+- `code=` takes a list: the script and the modules it imports are all copied per version
+  (`code/<stem>-vN.py`); the record lists the copies (`code.copies`).
+
 ## v2026.10.11 (2026-10-13)
 
 - **Themes find the information strip themselves:** `fig` and `cat-fig` (slides, notes, posters)

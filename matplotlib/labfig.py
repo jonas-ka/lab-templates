@@ -22,7 +22,9 @@ With each version it keeps what made it, without duplicating anything large:
 - **the record** `<name>-v<N>.yaml`: author, dates, version, the lab-templates version, the
   script's repository and commit, the data files and their fingerprint, the Drive folder;
 - **the script**, copied to `code/<script>-v<N>.py` (a few kB; `code=None` skips the copy,
-  `code=<path>` copies another file, e.g. a notebook);
+  `code=<path>` copies another file, e.g. a notebook, `code=[script, module, ...]` several), and
+  the command line it was run with (in the record; `note=` adds anything else, such as an
+  environment setting);
 - **the data fingerprint**: a SHA-256 checksum over the files given as `data=` (names and
   contents; folders included). Identical data gives the same fingerprint, any change a
   different one, so it shows which versions share data and verifies data found later
@@ -263,6 +265,21 @@ def versions(path: str | Path) -> list[int]:
     return sorted(found)
 
 
+def _command(folder: Path) -> list[str] | None:
+    """The command line of the running script: its name and arguments, absolute paths made
+    relative to the figure folder (or shortened to the file name), never absolute."""
+    if not sys.argv or not sys.argv[0].endswith(".py"):
+        return None
+
+    def arg(a: str) -> str:
+        if not os.path.isabs(a):
+            return a
+        rel = os.path.relpath(a, folder.resolve())
+        return rel if not rel.startswith("../..") else ".../" + Path(a).name
+
+    return [Path(sys.argv[0]).name, *map(arg, sys.argv[1:])]
+
+
 def _record_text(fields: dict) -> str:
     """The record as YAML: one key per line, values in JSON notation (which YAML reads)."""
     lines = ["# Written by labfig.save (lab-templates matplotlib/labfig.py). Never edited or overwritten:",
@@ -275,7 +292,8 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
          author: str, created: str | date,
          modified_by: str | None = None, modified: str | date | None = None,
          data: list[str | Path] | str | Path | None = None, data_id: str | None = None,
-         code: str | Path | None = "auto", code_dir: str | Path | None = None,
+         code: str | Path | list[str | Path] | None = "auto", code_dir: str | Path | None = None,
+         note: str | None = None,
          drive_folder: str | None = None, drive_url: str | None = None,
          formats: tuple[str, ...] = ("pdf", "svg", "png"), info: bool = True,
          svg_text: str = "path") -> Path:
@@ -291,10 +309,12 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
     data: the input files or folders; their fingerprint goes on the strip and in the record.
     data_id: a label for the data (e.g. a run or job number), shown with the fingerprint, or
         instead of it when `data` is not given.
-    code: "auto" copies the running script; a path copies that file (e.g. a notebook); None
-        copies nothing (for a script already in git). The script's repository and commit go in
-        the record either way.
-    code_dir: where the copy goes (default: `code/` next to the figure), as `<stem>-v<N><ext>`.
+    code: "auto" copies the running script; a path copies that file (e.g. a notebook); a list
+        copies several (the script first, then modules it imports); None copies nothing (for a
+        script already in git). The script's repository and commit, and the command line it was
+        run with, go in the record either way.
+    code_dir: where the copies go (default: `code/` next to the figure), as `<stem>-v<N><ext>`.
+    note: anything else needed to redraw the figure exactly (e.g. an environment setting).
     drive_folder, drive_url: the Drive folder the figure lives in (name shown as text; the link
         is embedded in PDF and SVG). Leave out when the figure is not on Drive.
     svg_text: "path" draws SVG text as outlines (looks the same wherever it is rendered, e.g.
@@ -303,18 +323,25 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
     """
     path = Path(path)
     folder = path.parent
-    # the script that drew the figure: recorded always (repository, commit); copied unless code=None
-    script = Path(code) if code not in ("auto", None) else _calling_script()
+    # the code that drew the figure: the script is recorded always (repository, commit); the
+    # files are copied unless code=None
+    if isinstance(code, (list, tuple)):
+        sources = [Path(c) for c in code]
+    elif code not in ("auto", None):
+        sources = [Path(code)]
+    else:
+        sources = [s for s in [_calling_script()] if s] if code == "auto" else []
+    script = sources[0] if sources else _calling_script()
     if draft:
         stem, tag = f"{path.name}-draft", "Draft"
-        copy_to = None
+        copies = []
     else:
         if not isinstance(version, int) or version < 1:
             raise ValueError("give the figure's version (version=1 for a new figure), or draft=True while working on it")
         stem, tag = f"{path.name}-v{version}", f"Version {version}"
-        copy_to = ((Path(code_dir) if code_dir else folder / "code") / f"{script.stem}-v{version}{script.suffix}"
-                   if script and code is not None else None)
-        targets = [folder / f"{stem}.{ext}" for ext in (*formats, "yaml")] + ([copy_to] if copy_to else [])
+        cdir = Path(code_dir) if code_dir else folder / "code"
+        copies = [(src, cdir / f"{src.stem}-v{version}{src.suffix}") for src in sources]
+        targets = [folder / f"{stem}.{ext}" for ext in (*formats, "yaml")] + [dst for _, dst in copies]
         taken = [t for t in targets if t.exists()]
         if taken:
             nxt = max(versions(path) + [version]) + 1
@@ -329,6 +356,9 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
     if data_files and not draft:
         _check_data_unchanged(path, data_files)
     tid = template_id()
+    if not hasattr(fig.canvas, "get_renderer"):      # a closed figure (plt.close) has lost its canvas
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        FigureCanvasAgg(fig)
     fig.canvas.draw()
     content = fig.get_tightbbox(fig.canvas.get_renderer()).padded(PAD_IN)
     if info:
@@ -360,16 +390,18 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
     if draft:
         return out
 
-    if copy_to:
-        copy_to.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(script, copy_to)
+    for src, dst in copies:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
     sid = script_id(script) if script else None
     _record = {
         "figure": path.name, "version": version, "files": [f"{stem}.{ext}" for ext in formats],
         "created": _day(created), "author": author, "modified": _day(modified), "modified_by": modified_by,
         "saved": datetime.now().astimezone().isoformat(timespec="seconds"),
         "template": tid,
-        "code": {**sid, "copy": _rel(copy_to, folder) if copy_to else None} if sid else None,
+        "code": {**sid, "copies": [_rel(dst, folder) for _, dst in copies]} if sid else None,
+        "command": _command(folder),
+        "note": note,
         "data": {"fingerprint": f"sha256:{fp}" if fp else None, "id": data_id,
                  "files": [{"path": k, "sha256": v} for k, v in data_files.items()]} if (fp or data_id) else None,
         "drive": {"folder": drive_folder, "url": drive_url} if drive_folder else None,
