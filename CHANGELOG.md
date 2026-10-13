@@ -2,6 +2,14 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.14 (2026-10-13)
+
+- `labfig.save` lays out and measures each file at its own resolution (the PNG at 300 dpi, PDF
+  and SVG at `savefig.dpi`) and freezes that layout for the save, exactly as savefig's
+  `bbox_inches="tight"` does. v2026.10.13 froze the layout of one draw at screen resolution, which
+  shifted legends slightly in some figures. Redrawn lab figures now match their old versions
+  to within 0.1 % in aspect ratio.
+
 ## v2026.10.13 (2026-10-13)
 
 - `labfig.save` freezes the figure's layout while it writes the files (as savefig's

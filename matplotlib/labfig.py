@@ -360,13 +360,6 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
     if not hasattr(fig.canvas, "get_renderer"):      # a closed figure (plt.close) has lost its canvas
         from matplotlib.backends.backend_agg import FigureCanvasAgg
         FigureCanvasAgg(fig)
-    fig.canvas.draw()
-    content = fig.get_tightbbox(fig.canvas.get_renderer()).padded(PAD_IN)
-    # Freeze the layout of this draw while saving (as savefig's bbox_inches="tight" does): a
-    # constrained layout that does not settle (equal-aspect axes with a colour bar) moves on
-    # every draw, and the strip would then miss the measured bottom edge.
-    frozen = (fig._cm_set(layout_engine="none") if fig.get_layout_engine() is not None and hasattr(fig, "_cm_set")
-              else contextlib.nullcontext())
     if info:
         line1 = [(f"Created {_day(created)} by {author}", None)]
         if modified or modified_by:
@@ -379,18 +372,30 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
                                                                f"({data_id})" if fp and data_id else data_id])), None))
         if drive_folder:
             line2 += [(" · Drive: ", None), (drive_folder, drive_url)]
-        box = Bbox.from_extents(content.x0, content.y0 - STRIP_IN, content.x1, content.y1)
-    else:
-        box = content
-    with frozen:
-        for ext in formats:
-            dpi = 300 if ext == "png" else None
-            artists = _add_strip(fig, content, [line1, line2], raster_dpi=dpi) if info else []
+    rc_dpi = plt.rcParams["savefig.dpi"]
+    for ext in formats:
+        dpi = 300 if ext == "png" else (fig.dpi if rc_dpi == "figure" else float(rc_dpi))
+        # As savefig(bbox_inches="tight") does, per file: lay out and measure at the file's own
+        # resolution, then freeze that layout for the save (a constrained layout that does not
+        # settle, e.g. equal-aspect axes with a colour bar, would otherwise move between the
+        # measuring draw and the saving one, and the strip would miss the bottom edge).
+        old_dpi = fig.dpi
+        try:
+            fig.set_dpi(dpi)
+            fig.canvas.draw()
+            content = fig.get_tightbbox(fig.canvas.get_renderer()).padded(PAD_IN)
+        finally:
+            fig.set_dpi(old_dpi)
+        box = Bbox.from_extents(content.x0, content.y0 - (STRIP_IN if info else 0), content.x1, content.y1)
+        frozen = (fig._cm_set(layout_engine="none") if fig.get_layout_engine() is not None and hasattr(fig, "_cm_set")
+                  else contextlib.nullcontext())
+        with frozen:
+            artists = _add_strip(fig, content, [line1, line2], raster_dpi=dpi if ext == "png" else None) if info else []
             try:
                 with plt.rc_context({"svg.fonttype": "path" if svg_text == "path" else "none"}):
                     # the marker lets the lab themes find (and cut) the strip in any copy of the file
                     meta = {"Keywords": f"labfig info_strip_in={STRIP_IN}"} if info else {}
-                    fig.savefig(folder / f"{stem}.{ext}", bbox_inches=box, metadata=meta, **({"dpi": dpi} if dpi else {}))
+                    fig.savefig(folder / f"{stem}.{ext}", bbox_inches=box, metadata=meta, dpi=dpi)
             finally:
                 for a in artists:
                     a.remove()
