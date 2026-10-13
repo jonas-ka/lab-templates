@@ -109,6 +109,8 @@ def test_new_in_a_connected_repository_pushes_a_branch(tmp_path, monkeypatch):
     git(seed, "push", "-q", "origin", "main")
     clone = tmp_path / "clone"
     subprocess.run(["git", "clone", "-q", str(remote), str(clone)], check=True)
+    git(clone, "config", "user.email", "test@example.org")   # CI runners have no global identity
+    git(clone, "config", "user.name", "Test")
     project = init_repo(tmp_path / "project")
     (project / "logbook.yaml").write_text(f"central:\n  repository: example/central\n  clone: {clone}\n  project: Example experiment\n")
     monkeypatch.setattr(newentry.shutil, "which", lambda name: None)          # no gh: push only
