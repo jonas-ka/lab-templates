@@ -15,6 +15,9 @@ figure notebook; the guides). Public repository; consumers pull it as a git subt
   prefix and API-key patterns.
 - **A change compiles the examples** (`make check`: every `examples/*.typ` with
   `--pdf-standard ua-1`) before it is committed; a tag is made only on a green CI.
+- **A change to `logbook/` runs `make logbook`** (the tests and the example book through the
+  checker; needs uv). The log-book format is public: no entries, people or data of the lab, only
+  the made-up example in `examples/logbook/`.
 - **Versions are tags `vYYYY.MM.N`**; `VERSION` holds the current one; `CHANGELOG.md` gets a
   line per change under the next tag. Consumers update deliberately by tag, never silently.
 - **Accessibility stays built in**: every theme sets document title and language, figures

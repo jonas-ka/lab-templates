@@ -1,0 +1,11 @@
+# A central log book: entries by several people, checked against the registries below.
+# Every key is optional; these are the defaults except the title.
+title: Example central log book
+entries: entries
+wiki: wiki
+bibliography: wiki/references.bib
+registries: {people: people.yaml, projects: projects.yaml, apparatus: apparatus.yaml, kinds: kinds.yaml}
+limits: {warn_mb: 2, fail_mb: 5}
+late_days: 2
+coauthor_days: 14
+forbid_drive_ids: true

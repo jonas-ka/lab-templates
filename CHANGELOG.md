@@ -2,6 +2,30 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.16 (2026-10-13)
+
+- **Log-book entries as Markdown files** (`logbook/`, new; `docs/LOGBOOK_FORMAT.md`): one file
+  per entry, `entries/YYYY/YYYY-MM-DD-HHMM-<handle>-<slug>.md`, with a YAML header (only date,
+  authors, kind, project and title required) and the notebook's callouts as fenced divs
+  (`::: finding`, `::: issue {#id}`, …). Kinds note, run, calibration, maintenance, incident,
+  meeting, correction, redaction; links between entries written once (`[[id]]`, `related`,
+  `corrects`, `resolves: [id#block]` for open issues and todos), computed both ways; a wiki
+  folder; a BibTeX reference list cited as `[@Key]` and rendered as
+  `Author A.++ Phys. Rev. Lett. 123, 456 (2019)` (CSL style `karthein-lab.csl`); figures as
+  `labfig` versions, processed data, attachments, EPICS snapshots (`lab-epics-snapshot/1`).
+- **`logbook check`**, the submission checker (Python, `uv run --project lab/logbook logbook
+  check`): schema, names and dates, registries, links and open items, citations, files and
+  sizes, secrets and home paths, FERPA and health patterns (override `reviewed:` after reading,
+  recorded), export-control hold for PDF attachments and non-plot figures, and for a pull
+  request: append-only entries, tooling changed only by an admin, the submitter as first
+  author, proposed co-authors. `--ci` never prints the matched text. `logbook open-items`,
+  `logbook schema`. Rendering (PDF, HTML view) and the rest of the CLI follow.
+- **Standalone by default**: works in any repository without configuration; a central log book
+  adds `logbook.yaml` and registries of people, projects and apparatus. Example:
+  `examples/logbook/` (made-up people, Crossref test DOIs). The Typst log books (`#day`,
+  `#note`, `#entry`) are unchanged.
+- `make logbook` and a CI step run the tests and check the example (needs uv).
+
 ## v2026.10.15 (2026-10-13)
 
 - `labfig.save` restores the axes positions the script left before laying out each file, so every

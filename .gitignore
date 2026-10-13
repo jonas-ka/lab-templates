@@ -6,3 +6,5 @@ __pycache__/
 token.json
 credentials.json
 .env
+!examples/logbook/entries/**/*.pdf
+.venv/

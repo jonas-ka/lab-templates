@@ -14,3 +14,6 @@ jobs:
             | grep -v "\.github/workflows/ci\.yml:" || (echo "private pattern found" && exit 1)
       - name: Compile the examples (PDF/UA-1)
         run: make check
+      - uses: astral-sh/setup-uv@v6
+      - name: Log-book format (tests, example book)
+        run: make logbook
