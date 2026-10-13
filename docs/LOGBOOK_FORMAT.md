@@ -210,3 +210,5 @@ Needs [pandoc](https://pandoc.org) (3.x) for both and [Typst](https://typst.app)
   ```yaml
   site: {repository: owner/name}       # optional: host (default https://github.com), branch (main)
   ```
+
+  `logo: <path>` in `logbook.yaml` puts the lab's logo at the top of the sidebar (embedded in the page).

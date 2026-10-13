@@ -19,6 +19,7 @@ DEFAULTS = {
     "title": "Log book",
     "author": None,          # title block of the PDF; default: the first entry's first author
     "affiliation": None,
+    "logo": None,            # image shown top left in the HTML view (path from the book's root); PNG or SVG
     "entries": "entries",
     "wiki": "wiki",
     "bibliography": "wiki/references.bib",

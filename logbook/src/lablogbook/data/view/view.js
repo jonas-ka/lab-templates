@@ -549,7 +549,8 @@
     const nav = (href, emo, label, n, cls = "") => `<a class="nav ${cls}" href="${href}" ${curPath === href ? 'aria-current="page"' : ""}>` +
       `<span class="emo" aria-hidden="true">${emo}</span><span class="lbl">${esc(label)}</span>${n != null ? `<span class="n">${n}</span>` : ""}</a>`;
     const S = D.site, pc = count(projectsOf);
-    let h = `<div class="ws"><span class="logo" aria-hidden="true">${esc((D.title.match(/\p{L}/u) || ["L"])[0].toUpperCase())}</span>` +
+    const logo = D.logo ? `<img class="logo-img" src="${D.logo}" alt="">` : `<span class="logo" aria-hidden="true">${esc((D.title.match(/\p{L}/u) || ["L"])[0].toUpperCase())}</span>`;
+    let h = `<div class="ws">${logo}` +
       `<div class="ws-t"><b>${esc(D.title)}</b><span>${E.length} entries</span></div>` +
       `<button class="iconbtn glyph" data-act="collapse" title="Hide the sidebar" aria-label="Hide the sidebar">«</button></div>` +
       `<button class="nav" data-act="search"><span class="emo" aria-hidden="true">🔍</span><span class="lbl">Search</span><kbd>/</kbd></button>` +

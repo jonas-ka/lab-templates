@@ -3,6 +3,7 @@
 title: Example central log book
 author: Example Lab
 affiliation: Example University
+logo: ../../themes/logos/karthein-lab.png   # a placeholder here; a lab book points at its real logo
 entries: entries
 wiki: wiki
 bibliography: wiki/references.bib
