@@ -5,9 +5,9 @@ version: 1
 files: ["plot-example-transmission-scan-v1.pdf", "plot-example-transmission-scan-v1.svg", "plot-example-transmission-scan-v1.png"]
 created: "2026-10-01"
 author: "A. Author"
-saved: "2026-10-13T14:54:18-05:00"
-template: {"version": "v2026.10.14", "commit": "903de7f-dirty", "url": "https://github.com/jonas-ka/lab-templates/tree/903de7fb02e89617590432c2293c9de010188344"}
-code: {"file": "draw.py", "repository": null, "commit": null, "copies": []}
-command: ["draw.py"]
+saved: "2026-10-13T14:59:34-05:00"
+template: {"version": "v2026.10.16", "commit": "c279040-dirty", "url": "https://github.com/jonas-ka/lab-templates/tree/c279040b7519771419eced0158e5d7d9de4fe2f6"}
+code: {"file": "examples/logbook/scripts/draw_transmission_scan.py", "repository": "https://github.com/jonas-ka/lab-templates", "commit": "c279040b7519771419eced0158e5d7d9de4fe2f6", "copies": []}
+command: ["draw_transmission_scan.py"]
 data: {"fingerprint": "sha256:9906f7a66018dc28f77164ebe23cfbf9996db7d0e718a4b485f2759e2c9ef539", "id": null, "files": [{"path": "../data/transmission-scan-r017.csv", "sha256": "8c157e44f8dfcadcc1bace406813dd7d76ff0ca31766b9084feb8d0d6505cf1d"}]}
 info_strip_in: 0.4
