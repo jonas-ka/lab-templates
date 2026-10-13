@@ -2,7 +2,8 @@
 this line again", and passing the check does not make an entry compliant.
 
 Each rule: (code, category, regex, message). Categories:
-  secret, path, drive   always fail
+  secret, path          always fail
+  drive                 a note (links are fine; their sharing must stay restricted), or fail where forbid_drive_ids is set
   ferpa, health         fail; `reviewed: ferpa|health` in the header turns them into recorded warnings
   vendor                warning (proprietary or export-control wording; re-read before submitting)
 
@@ -31,7 +32,7 @@ RULES: list[tuple[str, str, re.Pattern, str]] = [
     # --- paths and Drive ids --------------------------------------------------------------
     ("path-home", "path", re.compile(re.escape(_HOME) + r"[^/\s]+/|" + re.escape(_HOME_LINUX) + r"[^/\s]+/|[A-Z]:\\Users\\"), "an absolute path into someone's home folder"),
     ("path-drive-mirror", "path", re.compile(re.escape(_DRIVE_MIRROR) + r"[^/\s]+"), "a Google Drive mirror path (it names the account)"),
-    ("drive-id", "drive", re.compile(r"(?:drive|docs)\.google\.com/[^\s)>\]]*?(?:/d/|/folders/|[?&]id=)[A-Za-z0-9_-]{20,}"), "a Google Drive link with its id; name the Drive folder instead"),
+    ("drive-id", "drive", re.compile(r"(?:drive|docs)\.google\.com/[^\s)>\]]*?(?:/d/|/folders/|[?&]id=)[A-Za-z0-9_-]{20,}"), "a Google Drive link"),
     # --- FERPA ------------------------------------------------------------------------------
     ("ferpa-uin", "ferpa", re.compile(r"(?<![\w+-])(?<!\d\.)\d{9}(?!\w|\.\d|-\d)"), "a nine-digit number (could be a student ID)"),
     ("ferpa-ssn", "ferpa", re.compile(r"(?<![\w-])\d{3}-\d{2}-\d{4}(?![\w-])"), "a number shaped like a social security number"),

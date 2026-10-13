@@ -139,8 +139,8 @@ Paths are relative to the entry's folder (`entries/YYYY/`).
   raw data lives. Raw data never goes into the log book.
 - **Attachments**: any other file. A **PDF attachment, or a figure that is not a plot**, is
   *held* until the author confirms, per file, that it holds no export-controlled technical data
-  (`export_control_confirmed: true`). If in doubt: do not confirm; name the folder that holds the
-  file instead.
+  (`export_control_confirmed: true`). If in doubt: do not confirm; link the file where it lives
+  (a Drive link with restricted sharing) instead of attaching it.
 - **EPICS settings**: `epics/<group>-<time>.json`, a snapshot of a named group of process
   variables (format `lab-epics-snapshot/1`, see `logbook/src/lablogbook/epics.py`); the groups
   are defined per apparatus in `apparatus.yaml`.
@@ -164,7 +164,8 @@ uv run --project lab/logbook logbook check --base origin/main --submitter <login
 | citations exist in the reference list; new references have a DOI or ISBN | fail |
 | files exist, inside `entries/`; sizes; plots have their SVG; drafts are not used; versions in figure names | fail / warning |
 | EPICS snapshots parse; PVs belong to the group | fail |
-| secrets (keys, tokens, private keys), home-folder paths, Drive links with ids | fail |
+| secrets (keys, tokens, private keys), home-folder paths | fail |
+| Google Drive links | note: fine while the file's sharing stays restricted; `forbid_drive_ids: true` in `logbook.yaml` makes them fail |
 | FERPA patterns: nine-digit numbers, SSN-shaped numbers, grades, transcripts of records, enrolment, someone named as a student who is not a member, a university address of a non-member | fail; `reviewed: ferpa` in the header after reading turns them into recorded warnings |
 | health words | fail; `reviewed: health` likewise |
 | proprietary or export-control wording | warning |

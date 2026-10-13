@@ -8,4 +8,4 @@ registries: {people: people.yaml, projects: projects.yaml, apparatus: apparatus.
 limits: {warn_mb: 2, fail_mb: 5}
 late_days: 2
 coauthor_days: 14
-forbid_drive_ids: true
+forbid_drive_ids: false   # true: Drive links in entries and wiki fail

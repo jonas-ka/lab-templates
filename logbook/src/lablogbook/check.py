@@ -75,7 +75,7 @@ class Report:
         if n["hold"]:
             summary += ("\nHELD: a PDF attachment or a figure that is not a plot waits for the author to confirm it holds "
                         "no export-controlled technical data (export_control_confirmed: true). If in doubt, do not "
-                        "confirm: name the Drive folder that holds the file instead, or ask the PI.")
+                        "confirm: link the file where it lives (restricted sharing) instead of attaching it, or ask the PI.")
         return "\n".join(lines + [summary])
 
     def to_json(self) -> str:
@@ -145,7 +145,9 @@ def scan_text(book: Book, rel: str, text: str, report: Report, reviewed: set[str
     for i, line in enumerate(text.splitlines(), start=1):
         hits = patterns.scan_line(line)
         for code, cat, msg in hits:
-            if cat == "drive" and not book.config.get("forbid_drive_ids", True):
+            if cat == "drive" and not book.config.get("forbid_drive_ids", False):
+                report.add("info", code, rel, i, "a Google Drive link: fine in this log book as long as the file's sharing "
+                           "stays restricted (never 'anyone with the link')", line)
                 continue
             if cat in ("ferpa", "health") and cat in reviewed:
                 report.add("warn", code, rel, i, f"{msg}; reviewed by the author (override recorded)", line)

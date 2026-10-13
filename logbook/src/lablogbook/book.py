@@ -25,7 +25,7 @@ DEFAULTS = {
     "limits": {"warn_mb": 2, "fail_mb": 5},
     "late_days": 2,          # an entry dated earlier than this before it is logged needs `backfilled`
     "coauthor_days": 14,     # people who logged on the same project this recently are proposed
-    "forbid_drive_ids": True,  # Drive links/ids in what authors write (figure files exempt)
+    "forbid_drive_ids": False,  # True: Drive links in entries and wiki fail (figure files are never scanned)
 }
 
 

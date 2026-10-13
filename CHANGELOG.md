@@ -15,7 +15,8 @@ Consumers read this before `scripts/lab-templates.sh pull <tag>`.
   `labfig` versions, processed data, attachments, EPICS snapshots (`lab-epics-snapshot/1`).
 - **`logbook check`**, the submission checker (Python, `uv run --project lab/logbook logbook
   check`): schema, names and dates, registries, links and open items, citations, files and
-  sizes, secrets and home paths, FERPA and health patterns (override `reviewed:` after reading,
+  sizes, secrets and home paths, Google Drive links (a note: fine while their sharing stays
+  restricted; `forbid_drive_ids: true` makes them fail), FERPA and health patterns (override `reviewed:` after reading,
   recorded), export-control hold for PDF attachments and non-plot figures, and for a pull
   request: append-only entries, tooling changed only by an admin, the submitter as first
   author, proposed co-authors. `--ci` never prints the matched text. `logbook open-items`,

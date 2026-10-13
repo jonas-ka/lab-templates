@@ -141,10 +141,12 @@ def test_secrets_paths_and_drive_ids(book_dir):
     drive = "https://drive.google.com/drive/folders/" + "A" * 28
     eid = "2026-10-06-0800-aa-secret"
     p = write_entry(book_dir, eid, note(eid), f"{token}\n{home}\n{drive}\n")
-    assert {"secret-github", "path-home", "drive-id"} <= codes(run(book_dir, p), "fail")
+    r = run(book_dir, p)
+    assert {"secret-github", "path-home"} <= codes(r, "fail")
+    assert "drive-id" in codes(r, "info") and "drive-id" not in codes(r, "fail")   # links allowed, with a reminder
     cfg = book_dir / "logbook.yaml"
-    cfg.write_text(cfg.read_text().replace("forbid_drive_ids: true", "forbid_drive_ids: false"))
-    assert "drive-id" not in codes(run(book_dir, p))
+    cfg.write_text(cfg.read_text().replace("forbid_drive_ids: false", "forbid_drive_ids: true"))
+    assert "drive-id" in codes(run(book_dir, p), "fail")
 
 
 def test_vendor_wording_warns(book_dir):
