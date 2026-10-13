@@ -2,6 +2,13 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.13 (2026-10-13)
+
+- `labfig.save` freezes the figure's layout while it writes the files (as savefig's
+  `bbox_inches="tight"` does). A constrained layout that does not settle (equal-aspect axes with a
+  colour bar) moved on every draw, so the strip could cut through the x label and PDF, SVG and
+  PNG came out slightly different. Found redrawing the FastSims bender figure; checked there.
+
 ## v2026.10.12 (2026-10-13)
 
 From redrawing the lab's Drive figures with `labfig`:
