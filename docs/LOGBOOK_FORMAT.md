@@ -193,13 +193,17 @@ Needs [pandoc](https://pandoc.org) (3.x) for both and [Typst](https://typst.app)
   also" come from later entries. It is built under PDF/UA-1, so figures go in as their SVG
   (with the `labfig` strip cut off); a figure that exists only as a PDF makes the build fall back
   to plain PDF and say so.
-- **The HTML view** is for daily use: search over the text, the settings and the EPICS values
+- **The HTML view** is for daily use, laid out like a notes app (a sidebar with the projects,
+  apparatus and wiki pages; page titles; property tables; filter menus): search over the text, the settings and the EPICS values
   (`kind:run`, `by:aa`, `project:…`, `tag:…`, `on:<apparatus>` narrow it); filters by project,
   subproject, person, apparatus, kind, tag and dates, kept in the address so a filtered view can
   be shared; entries by day; each entry with its open and resolved blocks, corrections, EPICS
   snapshots (compare two snapshots of the same group), files, the thread of related entries and
   what links to it; an open-items board; project and apparatus pages from the wiki with current
   calibrations and incidents; people; the wiki; the references. `/` jumps to the search.
+  Figures are shown as their SVG; a browser that cannot draw SVG paths (the Claude app's
+  built-in browser, for one) is detected when the page opens and gets the PNG saved next to
+  each SVG instead.
 - **Buttons that act on the repository** (new entry, correct this entry, discuss, source, edit a
   wiki page, request an export) appear when `logbook.yaml` names it:
 

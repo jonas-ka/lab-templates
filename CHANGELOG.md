@@ -14,7 +14,9 @@ Consumers read this before `scripts/lab-templates.sh pull <tag>`.
     "corrected by", "resolves" and "see also" computed from later entries. Figures go in as their
     SVG with the `labfig` strip cut off (PDF/UA-1 cannot embed PDF images); a figure that exists
     only as a PDF makes the build fall back to plain PDF, with a note.
-  - **HTML view**, for daily use in the lab: search over text, settings and EPICS values; filters
+  - **HTML view**, for daily use in the lab, laid out like a notes app (sidebar with projects,
+    apparatus and wiki pages; page icons and titles; property tables; soft callouts; coloured
+    tags and author avatars; filter menus): search over text, settings and EPICS values; filters
     by project and subproject, person, apparatus, kind, tag, dates, open items, figures, release
     candidates (kept in the address, so a filtered view can be shared); entries by day; an entry
     page with its open/resolved blocks, correction and resolution banners, EPICS snapshots that
@@ -23,7 +25,9 @@ Consumers read this before `scripts/lab-templates.sh pull <tag>`.
     incidents, snapshots); people; wiki; references. Light and dark, keyboard (`/` searches),
     phone width. Two builds: a folder (`--html`, for GitHub Pages) and one self-contained file
     (`--single`). Buttons for a new entry, a correction, the discussion and an export appear when
-    `logbook.yaml` names the repository (`site: {repository: owner/name}`).
+    `logbook.yaml` names the repository (`site: {repository: owner/name}`). Figures are
+    their SVG; a browser that cannot draw SVG paths (detected when the page opens; the Claude
+    app's built-in browser is one) gets the PNG next to each SVG, and line icons are hidden.
 - `notes/labnotes-template.typ`: no stray comma after the author when no affiliation is given
   (output unchanged otherwise).
 - Example book: `author`/`affiliation` in `logbook.yaml`; the example figure's version 2 (label

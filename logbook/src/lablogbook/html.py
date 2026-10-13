@@ -199,13 +199,15 @@ def build(book: Book, out: Path, single: bool = False, entries: list[Entry] | No
         if files.exists():
             shutil.rmtree(files)
 
-    def fig_url(key: str) -> str:
+    def fig_url(key: str, vector: bool = False) -> str:
+        """The figure for the page: its SVG (else PNG). `vector`: the link a click opens
+        (in the one-file build, the original next to the entry, not a second embedded copy)."""
         f = p.figs.get(key)
         if f is None:
             return ""
         src = f.svg or f.png or f.src
         if single:
-            return _data_uri(src)
+            return os.path.relpath(src, base) if vector else _data_uri(src)
         dest = base / "files" / book.rel(src)
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
@@ -221,6 +223,20 @@ def build(book: Book, out: Path, single: bool = False, entries: list[Entry] | No
             shutil.copy2(src, dest)
         return "files/" + rel
 
+    def png_url(key: str) -> str:
+        """The PNG next to the SVG, for browsers that cannot draw SVG paths (the view tests this)."""
+        f = p.figs.get(key)
+        if f is None or not f.png or f.png == (f.svg or f.png):
+            return ""
+        if single:
+            return os.path.relpath(f.png, base)   # the file next to the SVG; not embedded twice
+        dest = base / "files" / book.rel(f.png)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(f.png, dest)
+        return "files/" + book.rel(f.png)
+
+    text = re.sub(r"@@FIGPNG:(.+?)@@", lambda m: png_url(htmlmod.unescape(m.group(1))), text)
+    text = re.sub(r"@@FIGVEC:(.+?)@@", lambda m: fig_url(htmlmod.unescape(m.group(1)), vector=True), text)
     text = re.sub(r"@@FIG:(.+?)@@", lambda m: fig_url(htmlmod.unescape(m.group(1))), text)
     text = re.sub(r"@@FILE:(.+?)@@", lambda m: file_url(m.group(1)), text)
     page = (page.replace("/*@@CSS@@*/", css).replace("/*@@JS@@*/", js)

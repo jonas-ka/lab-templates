@@ -7,26 +7,52 @@
   const wikiBy = Object.fromEntries(D.wiki.map((w) => [w.page, w]));
   const refBy = Object.fromEntries(D.references.map((r) => [r.key, r]));
   const $ = (s, el = document) => el.querySelector(s);
-  const main = $("#main"), filtersEl = $("#filters"), layout = $(".layout");
+  const main = $("#main"), side = $("#side");
 
   // ------------------------------------------------------------------ helpers -------------
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[−–]/g, "-").toLowerCase();
-  const name = (h) => (D.people[h] && D.people[h].name) || h;
   const enc = encodeURIComponent;
-  const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
-  const fmtLogged = (s) => {
-    if (!s) return "not yet logged";
-    const d = new Date(s);
-    return isNaN(d) ? "logged " + s : "logged " + d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-  };
-  const withText = (w) => (w ? " (with assistance from " + (w === "claude" ? "Claude Code" : w) + ")" : "");
+  const name = (h) => (D.people[h] && D.people[h].name) || h;
+  const ymd = (iso) => { const [y, m, d] = String(iso).split("-").map(Number); return new Date(y, (m || 1) - 1, d || 1); };
+  const fmtDay = (iso) => ymd(iso).toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const fmtDate = (iso) => ymd(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  const daysSince = (iso) => Math.round((ymd(D.today) - ymd(iso)) / 864e5);
+  const fmtLogged = (s) => { if (!s) return "not yet logged"; const d = new Date(s); return isNaN(d) ? s : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); };
+  const withText = (w) => (w ? (w === "claude" ? "Claude Code" : w) : "");
+  const projectsOf = (e) => [e.project].concat(e.also || []);
+  const COLORS = ["blue", "green", "purple", "orange", "pink", "brown", "yellow", "red", "gray"];
+  const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
+  const KIND = { note: ["📝", "gray"], run: ["🧪", "blue"], calibration: ["📏", "green"], maintenance: ["🛠️", "brown"],
+                 incident: ["🚨", "red"], meeting: ["👥", "yellow"], correction: ["✏️", "orange"], redaction: ["🔒", "gray"] };
+  const kindEmo = (k) => (KIND[k] || ["📄"])[0];
+  const tag = (text, color, href) => href ? `<a class="tag ${color}" href="${href}">${esc(text)}</a>` : `<span class="tag ${color}">${esc(text)}</span>`;
+  const kindTag = (k) => tag(k, (KIND[k] || [0, "gray"])[1], `#/?kind=${enc(k)}`);
+  const projTag = (p, sub) => tag(p + (sub ? " · " + sub : ""), hue(p), `#/project/${enc(p)}`);
+  const initials = (h) => { const n = name(h).replace(/[^\p{L}\s.-]/gu, "").split(/[\s.]+/).filter(Boolean); return ((n[0] || h)[0] + (n.length > 1 ? n[n.length - 1][0] : "")).toUpperCase(); };
+  const avatar = (h, big) => `<span class="av${big ? " big" : ""} tag ${hue(h)}" aria-hidden="true">${esc(initials(h))}</span>`;
+  const personLink = (h) => `<a class="person" href="#/person/${enc(h)}">${avatar(h)}<span>${esc(name(h))}</span></a>`;
   const entryLink = (id, anchor, text) => {
     const e = byId[id];
     const t = text || (e ? e.title : id) + (anchor ? " (#" + anchor + ")" : "");
-    return e ? `<a href="#/e/${enc(id)}${anchor ? "/" + enc(anchor) : ""}">${esc(t)}</a>` : `<span title="${esc(id)}">${esc(t)}</span>`;
+    return e ? `<a class="link" href="#/e/${enc(id)}${anchor ? "/" + enc(anchor) : ""}">${esc(t)}</a>` : `<span title="${esc(id)}">${esc(t)}</span>`;
   };
-  const projectsOf = (e) => [e.project].concat(e.also || []);
+  const I = {   // a few line icons
+    search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>', plus: '<path d="M12 5v14M5 12h14"/>',
+    chev: '<path d="M9 6l6 6-6 6"/>', back: '<path d="M15 6l-6 6 6 6"/>', down: '<path d="M6 9l6 6 6-6"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',
+    moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>', menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+    export: '<path d="M12 15V3M7 8l5-5 5 5M5 21h14"/>', cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+    clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>', user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+    tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>', folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    tool: '<path d="M14.5 5.5a4 4 0 0 0 5 5L11 19a2.1 2.1 0 0 1-3-3z"/>', list: '<path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>',
+    link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+    kind: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/>', play: '<path d="M7 5l11 7-11 7z"/>', check: '<circle cx="12" cy="12" r="8"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+    git: '<circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="9" r="2"/><path d="M6 8v8M18 11c0 4-6 3-10 6"/>',
+    chat: '<path d="M4 5h16v11H9l-5 4z"/>', pen: '<path d="M4 20l4-1L19 8l-3-3L5 16z"/>',
+  };
+  const icon = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${I[n] || ""}</svg>`;
+
   for (const e of E) {
     e._title = norm(e.title);
     e._hay = norm([e.id, e.title, e.text, e.kind, e.project, e.subproject, (e.also || []).join(" "), (e.apparatus || []).join(" "),
@@ -34,6 +60,29 @@
       (e.parameters || []).map((p) => `${p.name} ${p.value} ${p.unit || ""}`).join(" "),
       (e.epics || []).map((s) => s.group + " " + s.pvs.map((p) => `${p.name} ${p.value} ${p.unit || ""}`).join(" ")).join(" "),
       (e.attendees || []).map(name).join(" ")].join(" "));
+  }
+
+  // ------------------------------------------------------------------ figures: SVG, else PNG -
+  // Some browsers (seen in the Claude app's embedded browser) cannot draw SVG paths: they fill
+  // the whole figure. Test once with a small triangle; if a corner that must stay empty gets
+  // painted, every figure switches to the PNG saved next to its SVG.
+  let usePng = false;
+  const svgTest = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const c = document.createElement("canvas"); c.width = 20; c.height = 20;
+        const x = c.getContext("2d"); x.drawImage(img, 0, 0, 20, 20);
+        resolve(x.getImageData(17, 2, 1, 1).data[3] === 0);       // top right lies outside the triangle
+      } catch (err) { resolve(true); }                            // cannot tell: keep the SVG
+    };
+    img.onerror = () => resolve(true);
+    img.src = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path d="M0 0 L0 20 L20 20 Z" fill="#000"/></svg>');
+  });
+  function figures(root) {
+    if (!usePng) return;
+    document.documentElement.classList.add("no-svg-paths");   // line icons hidden too; labels stay
+    root.querySelectorAll("img[data-png]").forEach((im) => { if (im.dataset.png && !im.dataset.swapped) { im.src = im.dataset.png; im.dataset.swapped = "1"; } });
   }
 
   // ------------------------------------------------------------------ filters -------------
@@ -51,7 +100,7 @@
     }
     return { terms: terms.filter(Boolean), fields };
   }
-  function openCount(e) { return Object.values(e.resolved || {}).filter((r) => !r.length).length; }
+  const openCount = (e) => Object.values(e.resolved || {}).filter((r) => !r.length).length;
   function match(e, Q) {
     if (F.project.size && !projectsOf(e).some((p) => F.project.has(p))) return false;
     if (F.sub.size && !F.sub.has(e.project + "/" + (e.subproject || ""))) return false;
@@ -72,16 +121,15 @@
     if (f.on && !(e.apparatus || []).some((a) => norm(a) === f.on)) return false;
     return Q.terms.every((t) => e._hay.includes(t));
   }
-  function score(e, Q) { return Q.terms.reduce((s, t) => s + (e._title.includes(t) ? 3 : 1), 0); }
+  const score = (e, Q) => Q.terms.reduce((s, t) => s + (e._title.includes(t) ? 3 : 1), 0);
   function filtered() {
     const Q = parseQuery(F.q);
     let list = E.filter((e) => match(e, Q));
     if (Q.terms.length && F.sort === "relevance") list.sort((a, b) => score(b, Q) - score(a, Q));
-    else if (F.sort === "old") list = list.slice();
-    else list = list.slice().reverse();
+    else if (F.sort !== "old") list = list.slice().reverse();
     return { list, Q };
   }
-  function anyFilter() { return F.q || SETS.some((k) => F[k].size) || F.from || F.to || F.open || F.figs || F.release; }
+  const anyFilter = () => F.q || SETS.some((k) => F[k].size) || F.from || F.to || F.open || F.figs || F.release;
   function toHash() {
     const p = new URLSearchParams();
     if (F.q) p.set("q", F.q);
@@ -99,67 +147,94 @@
     F.from = p.get("from") || ""; F.to = p.get("to") || "";
     F.open = p.has("open"); F.figs = p.has("figs"); F.release = p.has("release");
     F.sort = p.get("sort") || "new";
-    $("#q").value = F.q;
   }
+  function count(fn, list = E) { const c = {}; for (const e of list) for (const k of fn(e)) c[k] = (c[k] || 0) + 1; return c; }
+  let listBase = "#/";
+  function go() { const h = listBase + toHash(); if (location.hash !== h) location.hash = h; else render(); }
 
-  function count(fn) {
-    const c = {};
-    for (const e of E) for (const k of fn(e)) c[k] = (c[k] || 0) + 1;
-    return c;
+  // filter menus ("pills"): each opens a small menu of checkboxes with counts
+  const FILTERS = [
+    { key: "project", label: "Project", opts: () => {
+        const pc = count(projectsOf), sc = count((e) => (e.subproject ? [e.project + "/" + e.subproject] : []));
+        const out = [];
+        for (const p of D.projects) {
+          if (!pc[p.name]) continue;
+          out.push({ set: "project", v: p.name, l: p.name, n: pc[p.name] });
+          for (const s of p.subprojects) if (sc[p.name + "/" + s]) out.push({ set: "sub", v: p.name + "/" + s, l: s, n: sc[p.name + "/" + s], sub: true });
+        }
+        return out; } },
+    { key: "who", label: "Person", opts: () => { const c = count((e) => e.authors); return Object.keys(c).sort((a, b) => name(a).localeCompare(name(b))).map((h) => ({ set: "who", v: h, l: name(h), n: c[h] })); } },
+    { key: "app", label: "Apparatus", opts: () => { const c = count((e) => e.apparatus || []); return D.apparatus.filter((a) => c[a.id]).map((a) => ({ set: "app", v: a.id, l: a.name, n: c[a.id] })); } },
+    { key: "kind", label: "Kind", opts: () => { const c = count((e) => [e.kind]); return Object.keys(c).sort().map((k) => ({ set: "kind", v: k, l: kindEmo(k) + "  " + k, n: c[k] })); } },
+    { key: "tag", label: "Tag", opts: () => { const c = count((e) => e.tags || []); return Object.keys(c).sort((a, b) => c[b] - c[a] || a.localeCompare(b)).map((t) => ({ set: "tag", v: t, l: t, n: c[t] })); } },
+    { key: "date", label: "Date" },
+    { key: "more", label: "More" },
+  ];
+  function pillLabel(f) {
+    if (f.key === "project") { const n = F.project.size + F.sub.size; return n ? `Project: ${[...F.project, ...[...F.sub].map((s) => s.split("/")[1])].join(", ")}` : null; }
+    if (f.key === "date") return F.from || F.to ? `Date: ${F.from ? fmtDate(F.from) : "…"} – ${F.to ? fmtDate(F.to) : "…"}` : null;
+    if (f.key === "more") { const on = [F.open && "open items", F.figs && "with figures", F.release && "release candidates"].filter(Boolean); return on.length ? on.join(", ") : null; }
+    const s = F[f.key];
+    if (!s.size) return null;
+    const lbl = [...s].map((v) => (f.key === "who" ? name(v) : f.key === "app" ? ((D.apparatus.find((a) => a.id === v) || {}).name || v) : v));
+    return `${f.label}: ${lbl.join(", ")}`;
   }
-  function checkbox(set, value, label, n, cls = "") {
-    return `<label class="${cls}"><input type="checkbox" data-set="${set}" value="${esc(value)}" ${F[set].has(value) ? "checked" : ""}>` +
-      `<span>${esc(label)}</span><span class="n">${n}</span></label>`;
+  function clearFilter(key) {
+    if (key === "project") { F.project.clear(); F.sub.clear(); }
+    else if (key === "date") { F.from = ""; F.to = ""; }
+    else if (key === "more") { F.open = F.figs = F.release = false; }
+    else F[key].clear();
   }
-  let showAllTags = false;
-  function renderFilters() {
-    const pc = count(projectsOf), sc = count((e) => (e.subproject ? [e.project + "/" + e.subproject] : []));
-    const wc = count((e) => e.authors), ac = count((e) => e.apparatus || []), kc = count((e) => [e.kind]), tc = count((e) => e.tags || []);
-    let h = "<h3>Projects</h3>";
-    for (const p of D.projects) {
-      if (!pc[p.name]) continue;
-      h += checkbox("project", p.name, p.name, pc[p.name]);
-      for (const s of p.subprojects) if (sc[p.name + "/" + s]) h += checkbox("sub", p.name + "/" + s, s, sc[p.name + "/" + s], "sub");
+  let popKey = null;
+  function closePop() { $("#pop-host").innerHTML = ""; popKey = null; }
+  function openPop(key, btn) {
+    if (popKey === key) { closePop(); return; }
+    popKey = key;
+    const f = FILTERS.find((x) => x.key === key);
+    let h = "";
+    if (key === "date") {
+      h = `<div class="dates"><label for="pf">From</label><input id="pf" type="date" data-date="from" value="${esc(F.from)}">` +
+        `<label for="pt">To</label><input id="pt" type="date" data-date="to" value="${esc(F.to)}"></div>` +
+        `<div class="row"><button class="btn ghost" data-preset="7">Last 7 days</button><button class="btn ghost" data-preset="30">Last 30 days</button>` +
+        `<button class="btn ghost" data-preset="year">This year</button></div>`;
+    } else if (key === "more") {
+      h = [["open", "With open items"], ["figs", "With figures"], ["release", "Release candidates"]].map(([k, l]) =>
+        `<label class="opt"><input type="checkbox" data-flag="${k}" ${F[k] ? "checked" : ""}><span>${l}</span></label>`).join("");
+    } else {
+      const opts = f.opts();
+      h = opts.length ? opts.map((o) => `<label class="opt${o.sub ? " sub" : ""}"><input type="checkbox" data-set="${o.set}" value="${esc(o.v)}" ${F[o.set].has(o.v) ? "checked" : ""}>` +
+        `<span>${esc(o.l)}</span><span class="n">${o.n}</span></label>`).join("") : `<div class="hint">Nothing to filter by yet.</div>`;
     }
-    h += "<h3>People</h3>" + Object.keys(wc).sort((a, b) => name(a).localeCompare(name(b))).map((w) => checkbox("who", w, name(w), wc[w])).join("");
-    if (Object.keys(ac).length) h += "<h3>Apparatus</h3>" + D.apparatus.filter((a) => ac[a.id]).map((a) => checkbox("app", a.id, a.name, ac[a.id])).join("");
-    h += "<h3>Kind</h3>" + Object.keys(kc).sort().map((k) => checkbox("kind", k, k, kc[k])).join("");
-    const tags = Object.keys(tc).sort((a, b) => tc[b] - tc[a] || a.localeCompare(b));
-    if (tags.length) {
-      h += "<h3>Tags</h3>" + tags.slice(0, showAllTags ? tags.length : 12).map((t) => checkbox("tag", t, t, tc[t])).join("");
-      if (tags.length > 12) h += `<button class="more" data-act="tags">${showAllTags ? "fewer tags" : "all " + tags.length + " tags"}</button>`;
-    }
-    h += `<h3>Dates</h3><label for="f-from" class="sr">From</label><input id="f-from" type="date" value="${esc(F.from)}" data-date="from" aria-label="From">` +
-      `<label for="f-to" class="sr">To</label><input id="f-to" type="date" value="${esc(F.to)}" data-date="to" aria-label="To">`;
-    h += "<h3>Only</h3>" +
-      `<label><input type="checkbox" data-flag="open" ${F.open ? "checked" : ""}><span>with open items</span></label>` +
-      `<label><input type="checkbox" data-flag="figs" ${F.figs ? "checked" : ""}><span>with figures</span></label>` +
-      `<label><input type="checkbox" data-flag="release" ${F.release ? "checked" : ""}><span>release candidates</span></label>`;
-    if (anyFilter()) h += `<button class="btn clear" data-act="clear">Clear all filters</button>`;
-    filtersEl.innerHTML = h;
+    const host = $("#pop-host");
+    host.innerHTML = `<div class="pop" role="dialog" aria-label="${esc(f.label)}">${h}</div>`;
+    const pop = host.firstChild, r = btn.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(r.left, innerWidth - pop.offsetWidth - 8)) + "px";
+    pop.style.top = r.bottom + 6 + "px";
+    const first = pop.querySelector("input,button"); if (first) first.focus();
   }
-  filtersEl.addEventListener("change", (ev) => {
+  $("#pop-host").addEventListener("change", (ev) => {
     const t = ev.target;
     if (t.dataset.set) { t.checked ? F[t.dataset.set].add(t.value) : F[t.dataset.set].delete(t.value); }
     else if (t.dataset.date) F[t.dataset.date] = t.value;
     else if (t.dataset.flag) F[t.dataset.flag] = t.checked;
-    go(currentList());
+    const k = popKey; go(); popKey = null; reopen(k);
   });
-  filtersEl.addEventListener("click", (ev) => {
-    const a = ev.target.dataset.act;
-    if (a === "clear") { fromHash(""); go(currentList()); }
-    if (a === "tags") { showAllTags = !showAllTags; renderFilters(); }
+  $("#pop-host").addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-preset]");
+    if (!b) return;
+    if (b.dataset.preset === "year") { F.from = D.today.slice(0, 4) + "-01-01"; F.to = ""; }
+    else { const d = ymd(D.today); d.setDate(d.getDate() - +b.dataset.preset); F.from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; F.to = ""; }
+    closePop(); go();
   });
-  const currentList = () => (route().name === "open" ? "#/open" : "#/");
-  function go(base) { const h = base + toHash(); if (location.hash !== h) location.hash = h; else render(); }
+  function reopen(key) { const btn = main.querySelector(`[data-pill="${key}"]`); if (btn) openPop(key, btn); }
+  document.addEventListener("mousedown", (ev) => { if (popKey && !ev.target.closest(".pop") && !ev.target.closest("[data-pill]")) closePop(); });
 
   // ------------------------------------------------------------------ pieces --------------
   function highlight(text, terms) {
     let s = esc(text);
     for (const t of terms) {
       if (t.length < 2) continue;
-      const re = new RegExp("(" + t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig");
-      s = s.replace(re, "<mark>$1</mark>");
+      s = s.replace(new RegExp("(" + t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig"), "<mark>$1</mark>");
     }
     return s;
   }
@@ -167,33 +242,25 @@
     const text = e.text || "";
     let at = 0;
     if (terms.length) { const i = norm(text).indexOf(terms[0]); if (i > 60) at = i - 60; }
-    const s = (at ? "… " : "") + text.slice(at, at + 230) + (text.length > at + 230 ? " …" : "");
-    return highlight(s, terms);
+    return highlight((at ? "… " : "") + text.slice(at, at + 260), terms);
   }
-  function chips(e) {
-    let h = `<span class="chip kind kind-${esc(e.kind)}">${esc(e.kind)}</span>`;
-    h += `<a class="chip project" href="#/project/${enc(e.project)}">${esc(e.project)}${e.subproject ? " · " + esc(e.subproject) : ""}</a>`;
-    for (const a of e.also || []) h += ` <a class="chip project" href="#/project/${enc(a)}">${esc(a)}</a>`;
+  function row(e, terms) {
     const oc = openCount(e);
-    if (oc) h += ` <span class="chip open">${oc} open</span>`;
-    if (e.correctedBy.length) h += ` <span class="chip warn">corrected</span>`;
-    return h;
+    return `<a class="row-e" href="#/e/${enc(e.id)}"><span class="emo" aria-hidden="true">${kindEmo(e.kind)}</span>` +
+      `<span class="t">${highlight(e.title, terms)}</span>${e.time ? `<span class="time">${esc(e.time)}</span>` : "<span></span>"}` +
+      `<span class="props"><span class="avs">${e.authors.map((a) => avatar(a)).join("")}</span>` +
+      `${tag(e.project + (e.subproject ? " · " + e.subproject : ""), hue(e.project))}${tag(e.kind, (KIND[e.kind] || [0, "gray"])[1])}` +
+      `${oc ? `<span class="status open">${oc} open</span>` : ""}${e.correctedBy.length ? tag("corrected", "orange") : ""}</span>` +
+      `<span class="snip">${snippet(e, terms)}</span></a>`;
   }
-  function card(e, terms) {
-    const who = e.authors.map(name).join(", ");
-    return `<article class="card"><div class="line1">${e.time ? `<span>${esc(e.time)}</span>` : ""}${chips(e)}</div>` +
-      `<h2><a href="#/e/${enc(e.id)}">${highlight(e.title, terms)}</a></h2>` +
-      `<div class="line1"><span>${esc(who)}${esc(withText(e.with))}</span>${(e.tags || []).map((t) => `<span class="chip">${esc(t)}</span>`).join(" ")}</div>` +
-      `<p class="snip">${snippet(e, terms)}</p></article>`;
-  }
-  function cards(list, terms, limit) {
+  function rows(list, terms, limit) {
     if (!list.length) return `<p class="empty">No entries match.</p>`;
     let h = "", day = null;
     for (const e of list.slice(0, limit)) {
-      if (e.date !== day) { day = e.date; h += `<h3 class="day">${esc(day)}</h3>`; }
-      h += card(e, terms);
+      if (e.date !== day) { day = e.date; h += `<div class="group">${esc(fmtDay(day))}<span class="n">${list.filter((x) => x.date === day).length}</span></div>`; }
+      h += row(e, terms);
     }
-    if (list.length > limit) h += `<p><button class="btn" data-more="${limit + 100}">Show ${Math.min(100, list.length - limit)} more of ${list.length - limit}</button></p>`;
+    if (list.length > limit) h += `<button class="btn more-btn" data-more="${limit + 100}">Show ${Math.min(100, list.length - limit)} more</button>`;
     return h;
   }
   function openItems(list) {
@@ -204,202 +271,242 @@
     }
     return out.sort((a, b) => a.e.date.localeCompare(b.e.date));
   }
-  function table(head, rows, cls = "tbl") {
-    return `<table class="${cls}"><thead><tr>${head.map((x) => `<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>` +
-      rows.map((r) => `<tr${r.cls ? ` class="${r.cls}"` : ""}>${r.cells.map((c) => `<td${typeof c === "number" ? ' class="num"' : ""}>${c && c.html != null ? c.html : esc(c)}</td>`).join("")}</tr>`).join("") +
-      `</tbody></table>`;
+  function table(head, trs, cls = "t") {
+    return `<div class="tbl-wrap"><table class="${cls}"><thead><tr>${head.map((x) => `<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>` +
+      trs.map((r) => `<tr${r.cls ? ` class="${r.cls}"` : ""}>${r.cells.map((c) => {
+        const c2 = typeof c === "number" ? "num" : c && c.cls ? c.cls : "";
+        return `<td${c2 ? ` class="${c2}"` : ""}>${c && c.html != null ? c.html : esc(c)}</td>`; }).join("")}</tr>`).join("") +
+      `</tbody></table></div>`;
+  }
+  function pageHead(emo, title, desc) {
+    return `<div class="head-emo" aria-hidden="true">${emo}</div><h1 class="title">${esc(title)}</h1>${desc ? `<p class="desc">${desc}</p>` : ""}`;
+  }
+  function crumbs(parts) {
+    $("#crumbs").innerHTML = parts.map((p, i) => (i ? `<span class="sep">/</span>` : "") +
+      (p.href ? `<a href="${p.href}">${esc(p.t)}</a>` : `<span class="c">${esc(p.t)}</span>`)).join("");
+  }
+  function toolbar(n, total, opts = {}) {
+    const pills = FILTERS.map((f) => {
+      const lbl = pillLabel(f);
+      return lbl ? `<button class="pill on" data-pill="${f.key}">${esc(lbl)}<span class="x" data-clear="${f.key}" title="Remove">${icon("x")}</span></button>`
+                 : `<button class="pill" data-pill="${f.key}">${f.label}${icon("down")}</button>`;
+    }).join("");
+    return `<div class="toolbar"><label class="search">${icon("search")}<span class="sr">Search</span>` +
+      `<input id="q" type="search" placeholder="Search text, settings, PVs, people…" value="${esc(F.q)}" autocomplete="off" spellcheck="false"><kbd>/</kbd></label></div>` +
+      `<div class="bar2">${pills}${anyFilter() ? `<button class="btn ghost" data-act="clear">Clear</button>` : ""}` +
+      `<span class="count">${n} of ${total}</span>` +
+      (opts.sort ? `<select class="select-plain" id="sort" aria-label="Order"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="relevance">Best match</option></select>` : "") +
+      (opts.export ? `<button class="btn ghost" data-act="export">${icon("export")}Export</button>` : "") + `</div>`;
   }
 
   // ------------------------------------------------------------------ views ---------------
   let limit = 100;
   function viewEntries() {
+    listBase = "#/";
     const { list, Q } = filtered();
-    const n = list.length;
-    main.innerHTML = `<div class="summary"><button class="btn toggle-filters" data-act="filters">Filters</button>` +
-      `<span>${n} of ${E.length} entries${anyFilter() ? " match" : ""}</span>` +
-      `<label>Order <select id="sort"><option value="new">newest first</option><option value="old">oldest first</option>` +
-      `<option value="relevance">best match</option></select></label>` +
-      `<button class="btn" data-act="export">Export this selection</button></div>` + cards(list, Q.terms, limit);
+    crumbs([{ t: "Entries" }]);
+    main.innerHTML = pageHead("🗂️", "Entries", `Everything logged, newest first: ${E.length} entries by ${Object.keys(count((e) => e.authors)).length} people.`) +
+      toolbar(list.length, E.length, { sort: true, export: true }) + rows(list, Q.terms, limit);
     $("#sort").value = F.sort;
   }
   function viewOpen() {
+    listBase = "#/open";
     const { list, Q } = filtered();
     const items = openItems(list).filter((x) => !Q.terms.length || Q.terms.every((t) => norm(x.text + " " + x.e.title).includes(t)));
-    main.innerHTML = `<div class="summary"><button class="btn toggle-filters" data-act="filters">Filters</button>` +
-      `<span>${items.length} open item(s): issues and todos no later entry has resolved yet</span></div>` +
-      (items.length ? table(["Open since", "", "Item", "Entry", "Project", "By"], items.map((x) => ({ cells: [
-        { html: `${esc(x.e.date)}<br><span class="chip">${days(x.e.date, D.today)} d</span>` },
-        { html: `<span class="chip ${x.name === "issue" ? "warn" : "open"}">${esc(x.name)}</span>` },
-        { html: highlight(x.text, Q.terms) },
-        { html: entryLink(x.e.id, x.anchor, x.e.title) },
-        x.e.project + (x.e.subproject ? " · " + x.e.subproject : ""),
-        x.e.authors.map(name).join(", ")] })), "tbl items") : `<p class="empty">Nothing open.</p>`);
+    crumbs([{ t: "Open items" }]);
+    main.className = "wide";
+    main.innerHTML = pageHead("📌", "Open items", `Issues and todos that no later entry has resolved yet. A new entry resolves one by listing it under <code class="c">resolves:</code>.`) +
+      toolbar(items.length, openItems(E).length) +
+      (items.length ? table(["Item", "Entry", "Project", "Open since", "By"], items.map((x) => ({ cells: [
+        { html: `<span class="status open" title="${esc(x.name)}"></span> ${highlight(x.text, Q.terms)}`, cls: "item" },
+        { html: entryLink(x.e.id, x.anchor, x.e.title), cls: "entry" },
+        { html: projTag(x.e.project, x.e.subproject) },
+        { html: `${esc(fmtDate(x.e.date))} <span class="tag gray">${daysSince(x.e.date)} d</span>`, cls: "nowrap" },
+        { html: `<span class="avs">${x.e.authors.map((a) => avatar(a)).join("")}</span>` }] })), "t full") : `<p class="empty">Nothing open. 🎉</p>`);
   }
   function snapshotTable(s, other) {
     const ov = other ? Object.fromEntries(other.pvs.map((p) => [p.name, p])) : {};
-    const rows = s.pvs.map((p) => {
+    return table(["PV", "Value", "Unit", "Severity"].concat(other ? ["Δ to the other"] : []), s.pvs.map((p) => {
       const o = ov[p.name];
       const changed = other && (!o || String(o.value) !== String(p.value));
-      const cells = [p.name, typeof p.value === "number" ? p.value : String(p.value), p.unit || "", p.severity || ""];
+      const cells = [{ html: `<code class="c">${esc(p.name)}</code>` }, typeof p.value === "number" ? p.value : String(p.value), p.unit || "", p.severity || ""];
       if (other) cells.push(o ? (typeof p.value === "number" && typeof o.value === "number" ? +(p.value - o.value).toPrecision(6) : String(o.value)) : "–");
       return { cells, cls: changed ? "changed" : "" };
-    });
-    return table(["PV", "Value", "Unit", "Severity"].concat(other ? ["Δ to other"] : []), rows);
+    }));
   }
   function thread(e) {
     const seen = new Set([e.id]), todo = [e.id];
     while (todo.length) {
       const x = byId[todo.pop()];
       if (!x) continue;
-      for (const y of [].concat(x.related, x.corrects ? [x.corrects] : [], x.correctedBy))
-        if (y && !seen.has(y) && byId[y]) { seen.add(y); todo.push(y); }
+      for (const y of [].concat(x.related, x.corrects ? [x.corrects] : [], x.correctedBy)) if (y && !seen.has(y) && byId[y]) { seen.add(y); todo.push(y); }
     }
     return [...seen].map((i) => byId[i]).sort((a, b) => (a.date + a.id).localeCompare(b.date + b.id));
   }
+  const prop = (ic, label, value) => (value ? `<dt>${icon(ic)}${esc(label)}</dt><dd>${value}</dd>` : "");
+  const toggle = (title, body, n, open = true) =>
+    `<details class="toggle"${open ? " open" : ""}><summary>${icon("chev")}${esc(title)}${n != null ? ` <span class="n">${n}</span>` : ""}</summary><div>${body}</div></details>`;
+  function linkList(ids, here) {
+    return `<ul class="links">${ids.map((x) => { const e = byId[x]; return e ? `<li class="${x === here ? "here" : ""}"><span aria-hidden="true">${kindEmo(e.kind)}</span>` +
+      (x === here ? esc(e.title) : entryLink(x)) + `<span class="d">${esc(fmtDate(e.date))}</span></li>` : ""; }).join("")}</ul>`;
+  }
   function viewEntry(id, anchor) {
     const e = byId[id];
-    if (!e) { main.innerHTML = `<p class="empty">No entry ${esc(id)} in this view.</p>`; return; }
+    if (!e) { crumbs([{ t: "Entries", href: "#/" }]); main.innerHTML = `<p class="empty">No entry ${esc(id)} in this view.</p>`; return; }
     const i = E.indexOf(e), prev = E[i - 1], next = E[i + 1], S = D.site;
-    let h = `<div class="entry-head"><div class="crumbs"><a href="#/${toHash()}">← All entries</a>` +
-      (prev ? `<a href="#/e/${enc(prev.id)}" title="${esc(prev.title)}">‹ earlier</a>` : "") +
-      (next ? `<a href="#/e/${enc(next.id)}" title="${esc(next.title)}">later ›</a>` : "") + `</div>` +
-      `<div class="meta">${chips(e)}</div><h1>${esc(e.title)}</h1>` +
-      `<div class="meta"><span>${esc(e.date)}${e.time ? " " + esc(e.time) : ""}</span><span>·</span>` +
-      `<span>${e.authors.map((a) => `<a href="#/person/${enc(a)}">${esc(name(a))}</a>`).join(", ")}${esc(withText(e.with))}</span><span>·</span>` +
-      `<span title="When the entry was merged into the log book">${esc(fmtLogged(e.logged))}</span>` +
-      (e.backfilled ? `<span>· backfilled ${esc(e.backfilled)}</span>` : "") +
-      ((e.apparatus || []).length ? `<span>· on ${e.apparatus.map((a) => `<a href="#/apparatus/${enc(a)}">${esc(a)}</a>`).join(", ")}</span>` : "") +
-      (e.release === "candidate" ? `<span class="chip">release candidate</span>` : "") +
-      ((e.tags || []).map((t) => `<span class="chip">${esc(t)}</span>`).join(" ")) + `</div>`;
-    h += `<div class="entry-actions">`;
+    crumbs([{ t: "Entries", href: "#/" + toHash() }, { t: e.project, href: `#/project/${enc(e.project)}` }, { t: e.title }]);
+    $("#top-actions").innerHTML = (prev ? `<a class="iconbtn glyph" href="#/e/${enc(prev.id)}" title="Earlier: ${esc(prev.title)}" aria-label="Earlier entry">‹</a>` : "") +
+      (next ? `<a class="iconbtn glyph" href="#/e/${enc(next.id)}" title="Later: ${esc(next.title)}" aria-label="Later entry">›</a>` : "");
+    let h = pageHead(kindEmo(e.kind), e.title);
+    h += `<dl class="props-tbl">` +
+      prop("cal", "Date", esc(fmtDay(e.date)) + (e.time ? " · " + esc(e.time) : "")) +
+      prop("clock", "Logged", `<span class="${e.logged ? "" : "muted"}">${esc(fmtLogged(e.logged))}</span>` + (e.backfilled ? ` <span class="tag gray">backfilled ${esc(e.backfilled)}</span>` : "")) +
+      prop("user", e.authors.length > 1 ? "Authors" : "Author", e.authors.map(personLink).join("") + (e.with ? `<span class="muted">with ${esc(withText(e.with))}</span>` : "")) +
+      prop("kind", "Kind", kindTag(e.kind)) +
+      prop("folder", "Project", projectsOf(e).map((p, k) => projTag(p, k ? null : e.subproject)).join("")) +
+      prop("tool", "Apparatus", (e.apparatus || []).map((a) => tag((D.apparatus.find((x) => x.id === a) || {}).name || a, hue(a), `#/apparatus/${enc(a)}`)).join("")) +
+      prop("tag", "Tags", (e.tags || []).map((t) => tag(t, hue(t), `#/?tag=${enc(t)}`)).join("")) +
+      prop("play", "Runs", (e.runs || []).map((r) => `<code class="c">${esc(r)}</code>`).join(" ")) +
+      prop("user", "Attendees", (e.attendees || []).map(personLink).join("")) +
+      prop("check", "Valid until", e.valid_until ? esc(fmtDate(e.valid_until)) + (e.valid_until < D.today ? ` <span class="tag red">expired</span>` : "") : "") +
+      prop("export", "Release", e.release === "candidate" ? tag("candidate", "purple") : "") +
+      prop("git", "Migrated from", e.migrated_from ? `<code class="c">${esc(e.migrated_from)}</code>` : "") + `</dl>`;
+    h += `<div class="actions">`;
     if (S) {
-      h += e.pr ? `<a class="btn" href="${S.repo}/pull/${e.pr}">Discuss</a>` : `<a class="btn" href="${S.repo}/pulls?q=${enc(e.id)}">Discuss</a>`;
-      h += `<a class="btn" href="${S.new_entry}&title=${enc("Correction: " + e.title)}&corrects=${enc(e.id)}&project=${enc(e.project)}">Correct this entry</a>`;
-      h += `<a class="btn" href="${S.repo}/blob/${S.branch}/${e.path.split("/").map(enc).join("/")}">Source</a>`;
+      h += `<a class="btn ghost" href="${e.pr ? `${S.repo}/pull/${e.pr}` : `${S.repo}/pulls?q=${enc(e.id)}`}">${icon("chat")}Discuss</a>`;
+      h += `<a class="btn ghost" href="${S.new_entry}&title=${enc("Correction: " + e.title)}&corrects=${enc(e.id)}&project=${enc(e.project)}">${icon("pen")}Correct this entry</a>`;
+      h += `<a class="btn ghost" href="${S.repo}/blob/${S.branch}/${e.path.split("/").map(enc).join("/")}">${icon("git")}Source</a>`;
     }
-    h += `<button class="btn" data-act="cite-id" data-id="${esc(e.id)}">Copy link to cite</button></div></div>`;
+    h += `<button class="btn ghost" data-act="cite-id" data-id="${esc(e.id)}">${icon("link")}<span>Copy link for another entry</span></button></div><hr class="div">`;
     for (const c of e.correctedBy) {
       const ce = byId[c];
-      h += `<div class="banner red"><b>Corrected</b> by ${entryLink(c)}${ce ? ": " + esc((ce.text || "").slice(0, 260)) + (ce.text.length > 260 ? " …" : "") : ""}</div>`;
+      h += `<div class="banner correct"><b>Corrected</b> by ${entryLink(c)}${ce ? `<span class="q">${esc((ce.text || "").slice(0, 280))}${ce.text.length > 280 ? " …" : ""}</span>` : ""}</div>`;
     }
-    for (const r of e.redactedBy) h += `<div class="banner"><b>Redacted:</b> see ${entryLink(r)}.</div>`;
-    if (e.corrects) h += `<div class="banner red"><b>Corrects</b> ${entryLink(e.corrects)}.</div>`;
-    if (e.redacts) h += `<div class="banner"><b>Redacts</b> ${entryLink(e.redacts)}.</div>`;
+    for (const r of e.redactedBy) h += `<div class="banner redact"><b>Redacted:</b> see ${entryLink(r)}.</div>`;
+    if (e.corrects) h += `<div class="banner correct"><b>Corrects</b> ${entryLink(e.corrects)}</div>`;
+    if (e.redacts) h += `<div class="banner redact"><b>Redacts</b> ${entryLink(e.redacts)}</div>`;
     for (const r of e.resolves) {
       const [tid, a] = r.split("#"), t = byId[tid], b = t && (t.blocks || {})[a];
-      h += `<div class="banner green"><b>Resolves</b> ${entryLink(tid, a)}${b ? ": " + esc(b.text) : ""}</div>`;
+      h += `<div class="banner resolve"><b>Resolves</b> ${entryLink(tid, a)}${b ? `<span class="q">${esc(b.text)}</span>` : ""}</div>`;
     }
-    if ((e.parameters || []).length) h += table(["Parameter", "Value", "Unit", ""], e.parameters.map((p) => ({ cells: [p.name, typeof p.value === "number" ? p.value : String(p.value), p.unit || "", p.note || ""] })));
-    if ((e.runs || []).length) h += `<p class="meta"><b>Runs:</b> ${e.runs.map(esc).join(", ")}</p>`;
-    if ((e.attendees || []).length) h += `<p class="meta"><b>Attendees:</b> ${e.attendees.map((a) => esc(name(a))).join(", ")}</p>`;
-    if (e.valid_until) h += `<p class="meta"><b>Valid until:</b> ${esc(e.valid_until)}${e.valid_until < D.today ? " (expired)" : ""}</p>`;
+    if ((e.parameters || []).length) h += table(["Parameter", "Value", "Unit", "Note"], e.parameters.map((p) => ({ cells: [{ html: `<code class="c">${esc(p.name)}</code>` }, typeof p.value === "number" ? p.value : String(p.value), p.unit || "", p.note || ""] })));
     h += `<div class="prose" id="body">${e.html}</div>`;
     e.epics.forEach((s, k) => {
       const others = E.filter((x) => x !== e).flatMap((x) => x.epics.filter((y) => y.group === s.group).map((y) => ({ x, y })));
-      h += `<section class="more"><h2>EPICS snapshot · ${esc(s.group)}${s.label ? " · " + esc(s.label) : ""}</h2>` +
-        (others.length ? `<label class="meta">Compare with <select data-snap="${k}"><option value="">—</option>${others.map((o, j) =>
-          `<option value="${j}">${esc(o.x.date)} · ${esc(o.x.title)}${o.y.label ? " · " + esc(o.y.label) : ""}</option>`).join("")}</select></label>` : "") +
-        `<div id="snap-${k}">${snapshotTable(s)}</div></section>`;
       e["_others" + k] = others;
+      h += toggle(`EPICS snapshot · ${s.group}${s.label ? " · " + s.label : ""}`,
+        (others.length ? `<label class="compare">Compare with <select data-snap="${k}"><option value="">—</option>${others.map((o, j) =>
+          `<option value="${j}">${esc(fmtDate(o.x.date))} · ${esc(o.x.title)}${o.y.label ? " · " + esc(o.y.label) : ""}</option>`).join("")}</select></label>` : "") +
+        `<div id="snap-${k}">${snapshotTable(s)}</div>`, s.pvs.length);
     });
-    const files = e.data.map((d) => ({ cells: [{ html: `<a href="${esc(d.url)}">${esc(d.file)}</a>` }, "data", d.source || ""] }))
-      .concat(e.attachments.map((a) => ({ cells: [{ html: `<a href="${esc(a.url)}">${esc(a.file)}</a>` }, "attachment", a.description || ""] })));
-    if (files.length) h += `<section class="more"><h2>Files</h2>${table(["File", "", "Source / note"], files)}</section>`;
-    if (Object.keys(e.refs || {}).length) h += `<section class="more"><h2>References in the repository</h2><dl class="kv">${Object.entries(e.refs).map(([k, v]) => `<dt>${esc(k)}</dt><dd><code>${esc(v)}</code></dd>`).join("")}</dl></section>`;
-    if (e.cites.length) h += `<section class="more"><h2>Cited</h2><ul class="links">${e.cites.map((k) => { const r = refBy[k]; return r ? `<li>${r.doi ? `<a href="${esc(r.doi)}">${esc(r.cite)}</a>` : esc(r.cite)}</li>` : `<li>${esc(k)}</li>`; }).join("")}</ul></section>`;
+    const files = e.data.map((d) => ({ cells: [{ html: `<a class="link" href="${esc(d.url)}">${esc(d.file)}</a>` }, "data", d.source || ""] }))
+      .concat(e.attachments.map((a) => ({ cells: [{ html: `<a class="link" href="${esc(a.url)}">${esc(a.file)}</a>` }, "attachment", a.description || ""] })));
+    if (files.length) h += toggle("Files", table(["File", "", "Source / note"], files), files.length);
+    if (Object.keys(e.refs || {}).length) h += toggle("In the repository", `<dl class="kv">${Object.entries(e.refs).map(([k, v]) => `<dt>${esc(k)}</dt><dd><code class="c">${esc(v)}</code></dd>`).join("")}</dl>`, Object.keys(e.refs).length);
+    if (e.cites.length) h += toggle("Cited", `<ul class="links">${e.cites.map((k) => { const r = refBy[k]; return `<li><span aria-hidden="true">📚</span>${r ? (r.doi ? `<a href="${esc(r.doi)}">${esc(r.cite)}</a>` : esc(r.cite)) : esc(k)}</li>`; }).join("")}</ul>`, e.cites.length);
     const th = thread(e);
-    if (th.length > 1) h += `<section class="more"><h2>Thread</h2><ul class="links thread">${th.map((x) => `<li class="${x === e ? "here" : ""}">${esc(x.date)} · ${x === e ? esc(x.title) : entryLink(x.id)}</li>`).join("")}</ul></section>`;
-    if (e.backlinks.length) h += `<section class="more"><h2>Linked from</h2><ul class="links">${e.backlinks.map((b) => `<li>${esc((byId[b] || {}).date || "")} · ${entryLink(b)}</li>`).join("")}</ul></section>`;
-    if (e.migrated_from) h += `<p class="meta">Migrated from ${esc(e.migrated_from)}.</p>`;
+    if (th.length > 1) h += toggle("Thread", linkList(th.map((x) => x.id), e.id), th.length);
+    if (e.backlinks.length) h += toggle("Linked from", linkList(e.backlinks), e.backlinks.length);
     main.innerHTML = h;
-    // state of each issue / todo with an id
     for (const [a, by] of Object.entries(e.resolved || {})) {
       const el = document.getElementById("e-" + e.id + "--" + a);
       if (!el) continue;
       const s = document.createElement("span");
-      s.className = "state " + (by.length ? "done" : "open");
-      s.innerHTML = by.length ? "resolved in " + by.map((x) => entryLink(x)).join(", ") : "open";
-      el.insertBefore(s, el.firstChild);
+      s.className = "state status " + (by.length ? "done" : "open");
+      s.innerHTML = by.length ? "Resolved in " + by.map((x) => entryLink(x)).join(", ") : "Open";
+      el.appendChild(s);
     }
     main.querySelectorAll("select[data-snap]").forEach((sel) => sel.addEventListener("change", () => {
       const k = +sel.dataset.snap, o = e["_others" + k][sel.value];
       $("#snap-" + k).innerHTML = snapshotTable(e.epics[k], o ? o.y : null);
     }));
-    if (anchor) {
-      const el = document.getElementById("e-" + e.id + "--" + anchor);
-      if (el) { el.scrollIntoView({ block: "center" }); el.classList.add("flash"); }
-    } else window.scrollTo(0, 0);
+    if (anchor) { const el = document.getElementById("e-" + e.id + "--" + anchor); if (el) { el.scrollIntoView({ block: "center" }); el.classList.add("flash"); } }
+    else window.scrollTo(0, 0);
   }
-  function wikiBlock(page) {
+  function wikiHtml(page) {
     const w = wikiBy[page];
     if (!w) return "";
     const S = D.site;
-    const html = w.html.replace(/^\s*<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/, "");   // the page's own title is shown above it
-    return `<div class="prose">${html}</div>` + (S ? `<p><a class="btn" href="${S.repo}/edit/${S.branch}/${S.wiki}/${page.split("/").map(enc).join("/")}.md">Edit this page</a></p>` : "");
+    const html = w.html.replace(/^\s*<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/, "");   // the page's title is shown above it
+    return `<div class="prose">${html}</div>` + (S ? `<div class="actions"><a class="btn ghost" href="${S.repo}/edit/${S.branch}/${S.wiki}/${page.split("/").map(enc).join("/")}.md">${icon("pen")}Edit this page</a></div>` : "");
   }
   function viewProjects() {
+    crumbs([{ t: "Projects" }]);
     const pc = count(projectsOf), open = openItems(E);
-    main.innerHTML = `<h1 class="page-title">Projects</h1><div class="grid">` + D.projects.map((p) =>
-      `<a class="tile" href="#/project/${enc(p.name)}"><b>${esc(p.name)}</b><span>${pc[p.name] || 0} entries · ${open.filter((x) => projectsOf(x.e).includes(p.name)).length} open</span></a>`).join("") + `</div>`;
+    main.innerHTML = pageHead("📁", "Projects", "Each project's page, entries and open items.") + `<div class="gallery">` + D.projects.map((p) =>
+      `<a class="card" href="#/project/${enc(p.name)}"><span class="emo">📁</span><b>${esc(p.name)}</b><span>${pc[p.name] || 0} entries · ${open.filter((x) => projectsOf(x.e).includes(p.name)).length} open</span></a>`).join("") + `</div>`;
+  }
+  function openList(open) {
+    return open.length ? `<ul class="links">${open.map((x) => `<li><span class="status open"></span>${esc(x.text)}<span class="d">${entryLink(x.e.id, x.anchor, fmtDate(x.e.date))}</span></li>`).join("")}</ul>`
+                       : `<p class="desc">Nothing open.</p>`;
   }
   function viewProject(n) {
     const p = D.projects.find((x) => x.name === n) || { name: n, subprojects: [] };
     const list = E.filter((e) => projectsOf(e).includes(n)).reverse();
     const open = openItems(list);
-    main.innerHTML = `<div class="crumbs"><a href="#/projects">← Projects</a></div><h1 class="page-title">${esc(n)}</h1>` +
-      (p.wiki ? wikiBlock(p.wiki) : `<p class="meta">No project page in the wiki yet.</p>`) +
-      (p.subprojects.length ? `<p class="meta">Subprojects: ${p.subprojects.map((s) => `<a class="chip" href="#/?project=${enc(n)}&sub=${enc(n + "/" + s)}">${esc(s)}</a>`).join(" ")}</p>` : "") +
-      `<section class="more"><h2>Open items (${open.length})</h2>${open.length ? `<ul class="links">${open.map((x) => `<li><span class="chip ${x.name === "issue" ? "warn" : "open"}">${esc(x.name)}</span> ${esc(x.text)} — ${entryLink(x.e.id, x.anchor, x.e.date)}</li>`).join("")}</ul>` : `<p class="meta">Nothing open.</p>`}</section>` +
-      `<section class="more"><h2>Latest entries (${list.length}) · <a href="#/?project=${enc(n)}">all, with filters</a></h2>${cards(list, [], 15)}</section>`;
+    crumbs([{ t: "Projects", href: "#/projects" }, { t: n }]);
+    main.innerHTML = pageHead("📁", n) + `<dl class="props-tbl">` +
+      prop("list", "Entries", `${list.length} · <a class="link" href="#/?project=${enc(n)}">filter the list</a>`) +
+      prop("folder", "Subprojects", p.subprojects.map((s) => tag(s, hue(s), `#/?project=${enc(n)}&sub=${enc(n + "/" + s)}`)).join("")) +
+      prop("check", "Open items", `${open.length}`) + `</dl><hr class="div">` +
+      (p.wiki ? wikiHtml(p.wiki) : `<p class="desc">No project page in the wiki yet.</p>`) +
+      toggle("Open items", openList(open), open.length) +
+      toggle("Latest entries", rows(list, [], 12), list.length);
   }
   function viewApparatusList() {
+    crumbs([{ t: "Apparatus" }]);
     const ac = count((e) => e.apparatus || []);
-    main.innerHTML = `<h1 class="page-title">Apparatus</h1>` + (D.apparatus.length ? `<div class="grid">` + D.apparatus.map((a) =>
-      `<a class="tile" href="#/apparatus/${enc(a.id)}"><b>${esc(a.name)}</b><span>${ac[a.id] || 0} entries</span></a>`).join("") + `</div>` : `<p class="empty">No apparatus registered.</p>`);
+    main.innerHTML = pageHead("🧰", "Apparatus", "What each part of the setup has been through: calibrations, maintenance, incidents, settings.") +
+      (D.apparatus.length ? `<div class="gallery">` + D.apparatus.map((a) => `<a class="card" href="#/apparatus/${enc(a.id)}"><span class="emo">🔧</span><b>${esc(a.name)}</b><span>${ac[a.id] || 0} entries</span></a>`).join("") + `</div>` : `<p class="empty">No apparatus registered.</p>`);
   }
   function viewApparatus(id) {
     const a = D.apparatus.find((x) => x.id === id) || { id, name: id };
     const list = E.filter((e) => (e.apparatus || []).includes(id)).reverse();
     const current = list.filter((e) => ["calibration", "maintenance"].includes(e.kind) && (!e.valid_until || e.valid_until >= D.today));
-    const incidents = list.filter((e) => e.kind === "incident");
-    const snaps = list.filter((e) => e.epics.length);
-    const li = (xs) => xs.length ? `<ul class="links">${xs.map((e) => `<li>${esc(e.date)} · ${entryLink(e.id)}${e.valid_until ? " (valid until " + esc(e.valid_until) + ")" : ""}</li>`).join("")}</ul>` : `<p class="meta">None.</p>`;
-    main.innerHTML = `<div class="crumbs"><a href="#/apparatus">← Apparatus</a></div><h1 class="page-title">${esc(a.name)}</h1>` +
-      (a.wiki ? wikiBlock(a.wiki) : "") +
-      `<section class="more"><h2>Current calibrations and maintenance</h2>${li(current)}</section>` +
-      `<section class="more"><h2>Incidents</h2>${li(incidents)}</section>` +
-      `<section class="more"><h2>EPICS snapshots</h2>${li(snaps)}</section>` +
-      `<section class="more"><h2>All entries (${list.length}) · <a href="#/?app=${enc(id)}">with filters</a></h2>${cards(list, [], 15)}</section>`;
+    const incidents = list.filter((e) => e.kind === "incident"), snaps = list.filter((e) => e.epics.length);
+    crumbs([{ t: "Apparatus", href: "#/apparatus" }, { t: a.name }]);
+    const li = (xs) => (xs.length ? linkList(xs.map((e) => e.id)) : `<p class="desc">None.</p>`);
+    main.innerHTML = pageHead("🔧", a.name) + `<dl class="props-tbl">` + prop("list", "Entries", `${list.length} · <a class="link" href="#/?app=${enc(id)}">filter the list</a>`) + `</dl><hr class="div">` +
+      (a.wiki ? wikiHtml(a.wiki) : "") +
+      toggle("Current calibrations and maintenance", li(current), current.length) + toggle("Incidents", li(incidents), incidents.length) +
+      toggle("EPICS snapshots", li(snaps), snaps.length) + toggle("All entries", rows(list, [], 12), list.length, false);
   }
   function viewPeople() {
+    crumbs([{ t: "People" }]);
     const wc = count((e) => e.authors);
-    main.innerHTML = `<h1 class="page-title">People</h1><div class="grid">` + Object.keys(wc).sort((a, b) => name(a).localeCompare(name(b))).map((w) =>
-      `<a class="tile" href="#/person/${enc(w)}"><b>${esc(name(w))}</b><span>${wc[w]} entries</span></a>`).join("") + `</div>`;
+    main.innerHTML = pageHead("👥", "People") + `<div class="gallery">` + Object.keys(wc).sort((a, b) => name(a).localeCompare(name(b))).map((w) =>
+      `<a class="card" href="#/person/${enc(w)}">${avatar(w)}<b>${esc(name(w))}</b><span>${wc[w]} entries</span></a>`).join("") + `</div>`;
   }
   function viewPerson(h) {
     const list = E.filter((e) => e.authors.includes(h)).reverse();
-    main.innerHTML = `<div class="crumbs"><a href="#/people">← People</a></div><h1 class="page-title">${esc(name(h))}</h1>` +
-      `<p class="meta">${list.length} entries · <a href="#/?who=${enc(h)}">with filters</a></p>` + cards(list, [], limit);
+    crumbs([{ t: "People", href: "#/people" }, { t: name(h) }]);
+    main.innerHTML = `<div class="head-emo">${avatar(h, true)}</div><h1 class="title">${esc(name(h))}</h1>` +
+      `<p class="desc">${list.length} entries · <a class="link" href="#/?who=${enc(h)}">filter the list</a></p>` + rows(list, [], limit);
   }
   function viewWikiList() {
+    crumbs([{ t: "Wiki" }]);
     const groups = {};
-    for (const w of D.wiki) { const g = w.page.includes("/") ? w.page.split("/")[0] : ""; (groups[g] = groups[g] || []).push(w); }
-    main.innerHTML = `<h1 class="page-title">Wiki</h1>` + (D.wiki.length ? Object.keys(groups).sort().map((g) =>
-      `<section class="more"><h2>${esc(g || "pages")}</h2><ul class="links">${groups[g].map((w) => `<li><a href="#/wiki/${w.page.split("/").map(enc).join("/")}">${esc(w.title)}</a></li>`).join("")}</ul></section>`).join("") : `<p class="empty">The wiki is empty.</p>`);
+    for (const w of D.wiki) { const g = w.page.includes("/") ? w.page.split("/")[0] : "pages"; (groups[g] = groups[g] || []).push(w); }
+    main.innerHTML = pageHead("📖", "Wiki", "How things are now: projects, apparatus, procedures. Living pages, changed through pull requests.") +
+      (D.wiki.length ? Object.keys(groups).sort().map((g) => toggle(g[0].toUpperCase() + g.slice(1), `<ul class="links">${groups[g].map((w) =>
+        `<li><span aria-hidden="true">📄</span><a href="#/wiki/${w.page.split("/").map(enc).join("/")}">${esc(w.title)}</a></li>`).join("")}</ul>`, groups[g].length)).join("") : `<p class="empty">The wiki is empty.</p>`);
   }
   function viewWiki(page) {
     const w = wikiBy[page];
+    crumbs([{ t: "Wiki", href: "#/wiki" }, { t: w ? w.title : page }]);
     if (!w) { main.innerHTML = `<p class="empty">No wiki page ${esc(page)}.</p>`; return; }
-    main.innerHTML = `<div class="crumbs"><a href="#/wiki">← Wiki</a></div><h1 class="page-title">${esc(w.title)}</h1>` + wikiBlock(page) +
-      (w.backlinks.length ? `<section class="more"><h2>Linked from</h2><ul class="links">${w.backlinks.map((b) => `<li>${entryLink(b)}</li>`).join("")}</ul></section>` : "");
+    main.innerHTML = pageHead("📄", w.title) + wikiHtml(page) + (w.backlinks.length ? toggle("Linked from", linkList(w.backlinks), w.backlinks.length) : "");
     window.scrollTo(0, 0);
   }
   function viewRefs() {
+    listBase = "#/refs";
+    crumbs([{ t: "References" }]);
     const Q = parseQuery(F.q);
     const refs = D.references.filter((r) => Q.terms.every((t) => norm(r.cite + " " + r.key + " " + (r.html || "")).includes(t)));
-    main.innerHTML = `<h1 class="page-title">References</h1><p class="meta">${refs.length} of ${D.references.length}. Cite in an entry as <code>[@Key]</code>.</p>` +
-      refs.map((r) => `<div class="ref"><div><span class="short">${r.doi ? `<a href="${esc(r.doi)}">${esc(r.cite)}</a>` : esc(r.cite)}</span> <span class="chip">@${esc(r.key)}</span></div>` +
-        `<div class="refline">${r.html || ""}</div>` + (r.citedBy.length ? `<div class="refline">Cited in ${r.citedBy.map((b) => entryLink(b)).join(" · ")}</div>` : "") + `</div>`).join("");
+    main.innerHTML = pageHead("📚", "References", `The lab's reference list. Cite one in an entry as <code class="c">[@Key]</code>.`) +
+      `<div class="toolbar"><label class="search">${icon("search")}<span class="sr">Search</span><input id="q" type="search" placeholder="Search references…" value="${esc(F.q)}" autocomplete="off"><kbd>/</kbd></label></div>` +
+      refs.map((r) => `<div class="ref"><div>${r.doi ? `<a class="short" href="${esc(r.doi)}">${esc(r.cite)}</a>` : `<span class="short">${esc(r.cite)}</span>`} ${tag("@" + r.key, "gray")}</div>` +
+        `<div class="full">${r.html || ""}</div>` + (r.citedBy.length ? `<div class="cited">Cited in ${r.citedBy.map((b) => entryLink(b)).join(" · ")}</div>` : "") + `</div>`).join("");
   }
 
   // ------------------------------------------------------------------ export dialog --------
@@ -416,11 +523,43 @@
     if (F.q) args.push(`--query "${F.q.replace(/"/g, "'")}"`);
     const S = D.site;
     $("#dialog-body").innerHTML = `<h2>Export ${list.length} entries as a PDF</h2>` +
-      `<p>An export for someone outside the lab is rendered with the lab notebook template and needs the PI's approval; every export is logged.</p>` +
-      (S ? `<p><a class="btn primary" href="${S.export}">Request the export on GitHub</a> with these settings:</p>` : `<p>From a clone of the log book:</p>`) +
+      `<p>An export for someone outside the lab is rendered with the lab notebook template and needs the PI's approval. Every export is logged.</p>` +
+      (S ? `<p><a class="btn primary" href="${S.export}">Request the export on GitHub</a></p><p>with these settings:</p>` : `<p>From a clone of the log book:</p>`) +
       `<pre>logbook export ${esc(args.join(" "))}</pre>`;
     $("#dialog").showModal();
   }
+
+  // ------------------------------------------------------------------ sidebar --------------
+  function renderSide() {
+    const curPath = (location.hash || "#/").split("?")[0];
+    const nav = (href, emo, label, n, cls = "") => `<a class="nav ${cls}" href="${href}" ${curPath === href ? 'aria-current="page"' : ""}>` +
+      `<span class="emo" aria-hidden="true">${emo}</span><span class="lbl">${esc(label)}</span>${n != null ? `<span class="n">${n}</span>` : ""}</a>`;
+    const S = D.site, pc = count(projectsOf);
+    let h = `<div class="ws"><span class="logo" aria-hidden="true">${esc((D.title.match(/\p{L}/u) || ["L"])[0].toUpperCase())}</span>` +
+      `<div><b>${esc(D.title)}</b><span>${E.length} entries</span></div></div>` +
+      `<button class="nav" data-act="search">${icon("search")}<span class="lbl">Search</span><kbd>/</kbd></button>` +
+      (S ? `<a class="nav" href="${S.new_entry}">${icon("plus")}<span class="lbl">New entry</span></a>` : "") +
+      `<div style="height:8px"></div>` +
+      nav("#/", "🗂️", "Entries", E.length) + nav("#/open", "📌", "Open items", openItems(E).length) +
+      nav("#/people", "👥", "People") + nav("#/refs", "📚", "References", D.references.length || null);
+    h += `<h4>Projects</h4>`;
+    for (const p of D.projects) if (pc[p.name] || p.wiki) h += nav(`#/project/${enc(p.name)}`, "📁", p.name, pc[p.name] || 0);
+    if (D.apparatus.length) { h += `<h4>Apparatus</h4>`; for (const a of D.apparatus) h += nav(`#/apparatus/${enc(a.id)}`, "🔧", a.name); }
+    if (D.wiki.length) {
+      h += `<h4>Wiki</h4>`;
+      for (const w of D.wiki.filter((w) => !/^(projects|apparatus)\//.test(w.page))) h += nav(`#/wiki/${w.page.split("/").map(enc).join("/")}`, "📄", w.title);
+      h += nav("#/wiki", "📖", "All pages", D.wiki.length, "muted");
+    }
+    h += `<div class="grow"></div><button class="nav muted" data-act="theme">${icon(document.documentElement.dataset.theme === "dark" ? "sun" : "moon")}<span class="lbl">${themeLabel()}</span></button>` +
+      `<div class="foot">Built ${esc(D.generated.replace("T", " "))} · logbook ${esc(D.version)}</div>`;
+    side.innerHTML = h;
+  }
+  const themeLabel = () => ({ dark: "Dark", light: "Light" }[document.documentElement.dataset.theme] || "Theme as the system");
+  function theme(t) {
+    if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+    try { t ? localStorage.setItem("lb-theme", t) : localStorage.removeItem("lb-theme"); } catch (err) { /* private window */ }
+  }
+  try { const t = localStorage.getItem("lb-theme"); if (t) document.documentElement.dataset.theme = t; } catch (err) { /* none */ }
 
   // ------------------------------------------------------------------ routing --------------
   function route() {
@@ -432,69 +571,74 @@
                   people: "people", person: "person", wiki: parts[1] ? "wikipage" : "wiki", refs: "refs" };
     return { name: parts.length ? map[parts[0]] || "entries" : "entries", parts, qs };
   }
-  const TABS = [["#/", "Entries", "entries", () => E.length], ["#/open", "Open items", "open", () => openItems(E).length],
-    ["#/projects", "Projects", "projects"], ["#/apparatus", "Apparatus", "apps"], ["#/people", "People", "people"],
-    ["#/wiki", "Wiki", "wiki", () => D.wiki.length], ["#/refs", "References", "refs", () => D.references.length]];
-  function renderTabs(active) {
-    const group = { entry: "entries", project: "projects", app: "apps", person: "people", wikipage: "wiki" }[active] || active;
-    $("#tabs").innerHTML = TABS.filter((t) => t[2] !== "apps" || D.apparatus.length).map(([href, label, key, n]) =>
-      `<a href="${href}" ${group === key ? 'aria-current="page"' : ""}>${label}${n ? `<span class="count">${n()}</span>` : ""}</a>`).join("");
-  }
   function render() {
     const r = route();
-    if (r.name === "entries" || r.name === "open") fromHash(r.qs);
-    renderTabs(r.name);
-    const withFilters = r.name === "entries" || r.name === "open";
-    layout.classList.toggle("nofilters", !withFilters);
-    filtersEl.classList.toggle("hidden", !withFilters);
-    if (withFilters) renderFilters();
+    closePop();
+    if (["entries", "open", "refs"].includes(r.name)) fromHash(r.qs);
+    main.className = "";
+    $("#top-actions").innerHTML = "";
+    side.classList.remove("open"); $("#scrim").classList.remove("open");
     ({ entries: viewEntries, open: viewOpen, entry: () => viewEntry(r.parts[1], r.parts[2]), projects: viewProjects,
        project: () => viewProject(r.parts.slice(1).join("/")), apps: viewApparatusList, app: () => viewApparatus(r.parts[1]),
        people: viewPeople, person: () => viewPerson(r.parts[1]), wiki: viewWikiList, wikipage: () => viewWiki(r.parts.slice(1).join("/")),
        refs: viewRefs })[r.name]();
+    renderSide();
+    figures(main);
+    const here = $("#crumbs .c");
+    document.title = (here ? here.textContent + " · " : "") + D.title;
   }
 
   // ------------------------------------------------------------------ wiring ---------------
   let timer;
-  $("#q").addEventListener("input", (ev) => {
+  main.addEventListener("input", (ev) => {
+    if (ev.target.id !== "q") return;
     clearTimeout(timer);
     timer = setTimeout(() => {
-      F.q = ev.target.value.trim();
-      limit = 100;
-      const r = route().name;
-      if (r === "refs") viewRefs(); else go(r === "open" ? "#/open" : "#/");
-    }, 160);
+      F.q = ev.target.value.trim(); limit = 100;
+      const pos = ev.target.selectionStart;
+      go();
+      const q = $("#q"); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (err) { /* not supported */ } }
+    }, 180);
   });
+  function focusSearch() {
+    const r = route().name;
+    if (!["entries", "open", "refs"].includes(r)) { location.hash = "#/"; setTimeout(() => $("#q") && $("#q").focus(), 30); }
+    else if ($("#q")) $("#q").focus();
+  }
   document.addEventListener("keydown", (ev) => {
-    if (ev.key === "/" && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "SELECT") { ev.preventDefault(); $("#q").focus(); }
-    if (ev.key === "Escape" && document.activeElement === $("#q")) { $("#q").value = ""; $("#q").dispatchEvent(new Event("input")); }
+    const t = document.activeElement.tagName;
+    if (ev.key === "/" && t !== "INPUT" && t !== "SELECT" && t !== "TEXTAREA") { ev.preventDefault(); focusSearch(); }
+    if (ev.key === "Escape") {
+      if (popKey) closePop();
+      else if (document.activeElement.id === "q" && F.q) { F.q = ""; go(); }
+    }
   });
   main.addEventListener("click", (ev) => {
+    const clr = ev.target.closest("[data-clear]");
+    if (clr) { ev.stopPropagation(); clearFilter(clr.dataset.clear); closePop(); go(); return; }
+    const pill = ev.target.closest("[data-pill]");
+    if (pill) { openPop(pill.dataset.pill, pill); return; }
     const t = ev.target.closest("[data-act],[data-more]");
     if (!t) return;
     if (t.dataset.more) { limit = +t.dataset.more; render(); }
     else if (t.dataset.act === "export") exportDialog();
-    else if (t.dataset.act === "filters") filtersEl.classList.toggle("open");
+    else if (t.dataset.act === "clear") { fromHash(""); go(); }
     else if (t.dataset.act === "cite-id") {
-      const text = "[[" + t.dataset.id + "]]";
-      try { navigator.clipboard.writeText(text); t.textContent = "Copied " + text; } catch (e) { t.textContent = text; }
+      const text = "[[" + t.dataset.id + "]]", label = t.querySelector("span");
+      try { navigator.clipboard.writeText(text); label.textContent = "Copied " + text; } catch (err) { label.textContent = text; }
     }
   });
-  main.addEventListener("change", (ev) => { if (ev.target.id === "sort") { F.sort = ev.target.value; go("#/"); } });
-
-  function theme(t) {
-    if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
-    try { t ? localStorage.setItem("lb-theme", t) : localStorage.removeItem("lb-theme"); } catch (e) { /* private window */ }
-  }
-  try { const t = localStorage.getItem("lb-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) { /* none */ }
-  const S = D.site;
-  $("#actions").innerHTML = (S ? `<a class="btn primary" href="${S.new_entry}">New entry</a>` : "") +
-    `<button class="btn" id="theme" title="Light, dark, or as the system">Theme</button>`;
-  $("#theme").addEventListener("click", () => {
-    const cur = document.documentElement.dataset.theme;
-    theme(cur === undefined ? "dark" : cur === "dark" ? "light" : undefined);
+  main.addEventListener("change", (ev) => { if (ev.target.id === "sort") { F.sort = ev.target.value; go(); } });
+  side.addEventListener("click", (ev) => {
+    const t = ev.target.closest("[data-act]");
+    if (!t) return;
+    if (t.dataset.act === "search") focusSearch();
+    if (t.dataset.act === "theme") { const c = document.documentElement.dataset.theme; theme(c === undefined ? "dark" : c === "dark" ? "light" : undefined); renderSide(); }
   });
-  $("#generated").textContent = `${E.length} entries · built ${D.generated.replace("T", " ")}`;
+  $("#menu").textContent = "☰";   // a text glyph: drawn by every browser
+  $("#menu").addEventListener("click", () => { side.classList.add("open"); $("#scrim").classList.add("open"); });
+  $("#scrim").addEventListener("click", () => { side.classList.remove("open"); $("#scrim").classList.remove("open"); });
   window.addEventListener("hashchange", render);
   render();
+  svgTest.then((ok) => { usePng = !ok; figures(main); });
 })();

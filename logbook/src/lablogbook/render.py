@@ -91,6 +91,13 @@ def svg_size_pt(svg: Path) -> tuple[float, float] | None:
     return (float(m.group(1)), float(m.group(2))) if m else None
 
 
+def png_size(png: Path) -> tuple[int, int] | None:
+    head = png.read_bytes()[:24]
+    if head[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+
+
 def make_fig(key: str, src: Path, caption: str, alt: str, label: str | None = None) -> Fig:
     stem = src.with_suffix("")
     svg = src if src.suffix.lower() == ".svg" else (stem.with_suffix(".svg") if stem.with_suffix(".svg").exists() else None)
@@ -100,6 +107,10 @@ def make_fig(key: str, src: Path, caption: str, alt: str, label: str | None = No
     size = svg_size_pt(svg) if svg else None
     if size:
         f.w, f.h_visible = size[0], max(size[1] - strip * 72, 1.0)
+    px = png_size(png) if (png and png.suffix.lower() == ".png" and not size) else None
+    if px:   # no SVG: the view shows the PNG, at its own aspect
+        dpi = px[0] / (size[0] / 72) if size else 300.0
+        f.w, f.h_visible = float(px[0]), max(px[1] - strip * dpi, 1.0)
     return f
 
 

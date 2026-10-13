@@ -4,24 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="lab-templates logbook">
+<link rel="icon" href="data:,">
 <title>@@TITLE@@</title>
 <style>/*@@CSS@@*/</style>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<header class="top">
-  <div class="brand"><a href="#/" id="book-title">@@TITLE@@</a><span class="sub" id="generated"></span></div>
-  <div class="searchbox" role="search">
-    <label for="q" class="sr">Search the log book</label>
-    <input id="q" type="search" placeholder="Search entries, settings, people …  ( / )" autocomplete="off" spellcheck="false">
+<div class="app">
+  <aside class="side" id="side" aria-label="Log book"></aside>
+  <div class="page">
+    <header class="topbar">
+      <button class="iconbtn menu-btn" id="menu" aria-label="Open the sidebar"></button>
+      <nav class="crumbs" id="crumbs" aria-label="Breadcrumbs"></nav>
+      <div id="top-actions"></div>
+    </header>
+    <main id="main" tabindex="-1"></main>
   </div>
-  <div class="actions" id="actions"></div>
-</header>
-<nav class="tabs" aria-label="Views" id="tabs"></nav>
-<div class="layout">
-  <aside class="filters" id="filters" aria-label="Filters"></aside>
-  <main id="main" tabindex="-1"></main>
 </div>
+<div class="scrim" id="scrim"></div>
+<div id="pop-host"></div>
 <dialog id="dialog"><div id="dialog-body"></div><form method="dialog"><button class="btn">Close</button></form></dialog>
 <script id="lb-data" type="application/json">@@DATA@@</script>
 <script>/*@@JS@@*/</script>

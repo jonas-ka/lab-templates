@@ -39,11 +39,13 @@ local function figure(key)
       tstr(f.typst_path), f.strip_in, tstr(f.alt), f.width or "62%", cap,
       f.label and (" <" .. f.label .. ">") or ""))
   end
+  -- the figure (its SVG), with the labfig strip cropped; a click opens it on its own
   return pandoc.RawBlock("html", string.format(
-    '<figure class="lb-fig"%s><div class="lb-crop" style="aspect-ratio: %s / %s">' ..
-    '<img src="@@FIG:%s@@" alt="%s" loading="lazy" style="width:100%%"></div>' ..
+    '<figure class="lb-fig"%s><a class="lb-crop" href="@@FIGVEC:%s@@" target="_blank" rel="noopener" ' ..
+    'title="Open the vector original" style="aspect-ratio: %s / %s">' ..
+    '<img src="@@FIG:%s@@" data-png="@@FIGPNG:%s@@" alt="%s" loading="lazy"></a>' ..
     '<figcaption>%s</figcaption></figure>',
-    f.label and (' id="' .. f.label .. '"') or "", f.w, f.h_visible, esc(key), esc(f.alt), esc(f.caption)))
+    f.label and (' id="' .. f.label .. '"') or "", esc(key), f.w, f.h_visible, esc(key), esc(key), esc(f.alt), esc(f.caption)))
 end
 
 local inner   -- callouts and figures inside an entry (defined below)

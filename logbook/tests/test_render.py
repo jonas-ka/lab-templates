@@ -79,7 +79,9 @@ def test_html_folder_build(tmp_path):
     assert run["epics"][0]["pvs"][1]["name"] == "SRC:Extract"
     assert "Finding" not in run["text"].split("rebuilt")[0]                           # labels not in search text
     figs = re.findall(r'src="(files/[^"]+)"', run["html"])
-    assert figs and all((tmp_path / "site" / f).exists() for f in figs)
+    assert figs and all((tmp_path / "site" / f).exists() for f in figs) and figs[0].endswith(".svg")
+    pngs = re.findall(r'data-png="(files/[^"]+)"', run["html"])        # fallback for browsers without SVG paths
+    assert pngs and all((tmp_path / "site" / f).exists() for f in pngs) and pngs[0].endswith(".png")
     assert all(x["data"][0]["url"].startswith("files/") for x in d["entries"] if x["data"])
     assert {w["page"] for w in d["wiki"]} >= {"projects/example-experiment", "apparatus/source"}
     assert len(d["references"]) == 3
