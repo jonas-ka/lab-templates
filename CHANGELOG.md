@@ -2,6 +2,12 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## Unreleased
+
+- `scripts/propagate.sh`: after a consumer's build check, the files the check rewrote (build
+  reports, "generated on" lines) are restored, so the next run does not skip that repository
+  for "uncommitted changes". The tree was clean before the pull, so nothing else is touched.
+
 ## v2026.10.10 (2026-10-13)
 
 - **Information strip below figures** (`matplotlib/labfig.py`, new): `labfig.save(fig, path,

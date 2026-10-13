@@ -36,5 +36,9 @@ consumers | while IFS='|' read -r name check; do
     echo "   check FAILED after the pull (see /tmp/lab-check.log); pull committed, not pushed"
     tail -5 /tmp/lab-check.log | sed 's/^/   | /'
   fi
+  # The check rebuilds documents and rewrites tracked files (build reports, "generated on" lines).
+  # The tree was clean before the pull (checked above), so restore them: otherwise the next run
+  # finds "uncommitted changes" and skips this repository. New untracked build outputs stay.
+  git checkout -q -- . && git diff-index --quiet HEAD -- || echo "   could not restore files rewritten by the check"
 done
 rm -f /tmp/lab-check.pdf
