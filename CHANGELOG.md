@@ -2,11 +2,18 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
-## Unreleased
+## v2026.10.9 (2026-10-13)
 
+- Notes theme (`themes/karthein-notes.typ`), from `phys689-nucl-exp`: `notes(page: (:))` passes
+  extra `set page` arguments into the theme's page setup, e.g. `page: (width: 11in, height: auto)`
+  for one continuous landscape page (explicit width and height take precedence over `paper` in
+  Typst); the default is unchanged.
 - `scripts/propagate.sh`: the talks-repo build check compiles the newest `talks/*.group-meeting`
   deck instead of a fixed folder (talk folders are now named `YYMM.DD.<name>`, JK 2026-10-13);
   the poster theme's header comment names the renamed poster folder.
+- `CLAUDE.md`: colleagues outside the lab use this repository, so a tag must not break documents
+  that compiled under the previous one, and defaults stay free of lab infrastructure (lab
+  behaviour opt-in); the log-book tooling to come is standalone by default.
 
 ## v2026.10.8 (2026-10-13)
 
