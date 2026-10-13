@@ -1,8 +1,8 @@
 # logbook: log-book entries as Markdown files
 
 A log book in which every entry is one Markdown file with a YAML header, kept in git, checked
-before it is submitted, and (from the next releases on) rendered as a PDF with the lab notebook
-template and as a searchable HTML view. The format is described in
+before it is submitted, and rendered as a PDF with the lab notebook template and as a
+searchable HTML view. The format is described in
 [`../docs/LOGBOOK_FORMAT.md`](../docs/LOGBOOK_FORMAT.md); a worked example is in
 [`../examples/logbook/`](../examples/logbook/).
 
@@ -16,6 +16,8 @@ apparatus are checked too.
 uv run --project lab/logbook logbook check                       # every entry, the wiki, the references
 uv run --project lab/logbook logbook check entries/2026/<id>.md  # one entry
 uv run --project lab/logbook logbook check --base origin/main --submitter <github-login> --ci   # a pull request
+uv run --project lab/logbook logbook build                       # build/logbook.pdf (pandoc + typst)
+uv run --project lab/logbook logbook build --html site --single view.html   # the HTML view, folder and one file
 uv run --project lab/logbook logbook open-items                  # issues and todos nothing has resolved
 uv run --project lab/logbook logbook schema                      # the header's JSON Schema
 ```

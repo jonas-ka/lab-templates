@@ -17,6 +17,8 @@ from .entry import Entry, EntryError, load_yaml
 
 DEFAULTS = {
     "title": "Log book",
+    "author": None,          # title block of the PDF; default: the first entry's first author
+    "affiliation": None,
     "entries": "entries",
     "wiki": "wiki",
     "bibliography": "wiki/references.bib",

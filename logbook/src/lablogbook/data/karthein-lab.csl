@@ -57,4 +57,37 @@
       </group>
     </layout>
   </citation>
+  <macro name="all-authors">
+    <names variable="author editor">
+      <name name-as-sort-order="all" sort-separator=" " initialize-with="." delimiter=", "/>
+    </names>
+  </macro>
+  <!-- The reference list: all authors, the title, the short citation's source, and the DOI. -->
+  <bibliography>
+    <sort><key macro="all-authors"/><key variable="issued"/></sort>
+    <layout>
+      <group delimiter=". ">
+        <text macro="all-authors"/>
+        <text variable="title"/>
+        <choose>
+          <if type="book">
+            <group delimiter=", "><text variable="publisher"/><date variable="issued"><date-part name="year"/></date></group>
+          </if>
+          <else>
+            <group delimiter=" ">
+              <group delimiter=", ">
+                <group delimiter=" "><text variable="container-title" form="short"/><text variable="volume"/></group>
+                <text variable="page-first"/>
+              </group>
+              <date variable="issued" prefix="(" suffix=")"><date-part name="year"/></date>
+            </group>
+          </else>
+        </choose>
+        <choose>
+          <if variable="DOI"><text variable="DOI" prefix="https://doi.org/"/></if>
+          <else-if variable="ISBN"><text variable="ISBN" prefix="ISBN "/></else-if>
+        </choose>
+      </group>
+    </layout>
+  </bibliography>
 </style>

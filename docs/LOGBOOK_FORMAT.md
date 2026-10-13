@@ -5,8 +5,8 @@ checked before it is submitted. It records what happened, when and why: decision
 with their numbers, problems and their fixes, open items. The repository and its documents say
 how things *are*; the log book says what *happened*.
 
-This is the format and the checker (`logbook/`, since v2026.10.16). The PDF build with the lab
-notebook template and the searchable HTML view follow in the next releases. The Typst log books
+This is the format, the checker (`logbook/`, since v2026.10.16), and the PDF and HTML view built
+from the entries (since v2026.10.17). The Typst log books
 (`#day`, `#note`, `#entry`, `docs/LOGBOOK_GUIDE.md`) keep working unchanged; moving one to this
 format is offered by a migration tool, never forced. A complete example: `examples/logbook/`.
 
@@ -176,3 +176,33 @@ uv run --project lab/logbook logbook check --base origin/main --submitter <login
 It finds patterns, not meaning: passing it does not make an entry compliant, reading it again
 does. With `--ci` it never prints the text a finding matched, only file, line and kind of hit.
 Exit code 0 fine, 1 failed, 3 held.
+
+## Building: the PDF and the HTML view
+
+```sh
+uv run --project lab/logbook logbook build                     # build/logbook.pdf
+uv run --project lab/logbook logbook build --html site         # the view as a folder (for GitHub Pages)
+uv run --project lab/logbook logbook build --single view.html  # the view as one file, figures inside
+```
+
+Needs [pandoc](https://pandoc.org) (3.x) for both and [Typst](https://typst.app) 0.15 for the PDF.
+
+- **The PDF** uses the lab notebook template: the wiki's project pages first, then one day per
+  date with its entries, then the references. Links between entries, to blocks and to the
+  project pages are live; citations link to their DOIs; "corrected by", "resolves" and "see
+  also" come from later entries. It is built under PDF/UA-1, so figures go in as their SVG
+  (with the `labfig` strip cut off); a figure that exists only as a PDF makes the build fall back
+  to plain PDF and say so.
+- **The HTML view** is for daily use: search over the text, the settings and the EPICS values
+  (`kind:run`, `by:aa`, `project:…`, `tag:…`, `on:<apparatus>` narrow it); filters by project,
+  subproject, person, apparatus, kind, tag and dates, kept in the address so a filtered view can
+  be shared; entries by day; each entry with its open and resolved blocks, corrections, EPICS
+  snapshots (compare two snapshots of the same group), files, the thread of related entries and
+  what links to it; an open-items board; project and apparatus pages from the wiki with current
+  calibrations and incidents; people; the wiki; the references. `/` jumps to the search.
+- **Buttons that act on the repository** (new entry, correct this entry, discuss, source, edit a
+  wiki page, request an export) appear when `logbook.yaml` names it:
+
+  ```yaml
+  site: {repository: owner/name}       # optional: host (default https://github.com), branch (main)
+  ```

@@ -106,7 +106,7 @@
     #set text(10pt, weight: "regular", fill: lab-grey)
     #if project != none [*Project:* #project]
     #if subproject != none [ #h(0.6em) *Subproject:* #subproject] \
-    *Author:* #author, #affiliation
+    *Author:* #author#if affiliation not in (none, "") [, #affiliation]
     #if started != none [ \ *Log started:* #started]
   ]
   if summary != none {

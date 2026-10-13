@@ -33,6 +33,7 @@ CHANGELOG.md   what changed in each tag; VERSION holds the current one
   both). The lab notebook uses Libertinus Serif, which is built into Typst.
 - **matplotlib** for `themes/karthein.mplstyle`, `matplotlib/labfig.py` and the figure notebook;
   `make` for `make check`.
+- For the log-book tools (`logbook/`): **uv**, and **pandoc** 3.x to build the PDF and the HTML view.
 
 Check a change with `make check`: it compiles every `examples/*.typ` with `--pdf-standard ua-1`
 into `build/`.

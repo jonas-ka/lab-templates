@@ -1,6 +1,8 @@
 # A central log book: entries by several people, checked against the registries below.
 # Every key is optional; these are the defaults except the title.
 title: Example central log book
+author: Example Lab
+affiliation: Example University
 entries: entries
 wiki: wiki
 bibliography: wiki/references.bib

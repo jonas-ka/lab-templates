@@ -2,6 +2,34 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.17 (2026-10-13)
+
+- **`logbook build`: the log book as a PDF and as an HTML view** (`docs/LOGBOOK_FORMAT.md`,
+  "Building"). Both are made from the Markdown entries through pandoc with two Lua filters and
+  the lab's CSL style; citations link to their DOIs, `[[links]]` and block ids become links in
+  both.
+  - **PDF**: the lab notebook template (`notes/labnotes-template.typ`), one `#day` per date and
+    one `#note` per entry, the template's callouts, the project pages of the wiki first and the
+    reference list last; parameters, EPICS snapshots, files and repository references as tables;
+    "corrected by", "resolves" and "see also" computed from later entries. Figures go in as their
+    SVG with the `labfig` strip cut off (PDF/UA-1 cannot embed PDF images); a figure that exists
+    only as a PDF makes the build fall back to plain PDF, with a note.
+  - **HTML view**, for daily use in the lab: search over text, settings and EPICS values; filters
+    by project and subproject, person, apparatus, kind, tag, dates, open items, figures, release
+    candidates (kept in the address, so a filtered view can be shared); entries by day; an entry
+    page with its open/resolved blocks, correction and resolution banners, EPICS snapshots that
+    can be compared with another snapshot of the same group, files, thread of related entries and
+    backlinks; an open-items board; project and apparatus pages (wiki text, current calibrations,
+    incidents, snapshots); people; wiki; references. Light and dark, keyboard (`/` searches),
+    phone width. Two builds: a folder (`--html`, for GitHub Pages) and one self-contained file
+    (`--single`). Buttons for a new entry, a correction, the discussion and an export appear when
+    `logbook.yaml` names the repository (`site: {repository: owner/name}`).
+- `notes/labnotes-template.typ`: no stray comma after the author when no affiliation is given
+  (output unchanged otherwise).
+- Example book: `author`/`affiliation` in `logbook.yaml`; the example figure's version 2 (label
+  moved off the curve) in a new entry linked to the one that shows version 1.
+- `make logbook` also builds the example's PDF and view into `build/`; CI installs pandoc 3.12.
+
 ## v2026.10.16 (2026-10-13)
 
 - **Log-book entries as Markdown files** (`logbook/`, new; `docs/LOGBOOK_FORMAT.md`): one file

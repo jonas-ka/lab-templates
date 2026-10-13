@@ -1,5 +1,5 @@
-"""`logbook`: the command line. Step one of the tooling: `check`, `schema`, `open-items`.
-(`new`, `build`, `export`, `pull`, `migrate`, `cite`, `month` follow.)"""
+"""`logbook`: the command line: `check`, `build`, `schema`, `open-items`.
+(`new`, `export`, `pull`, `migrate`, `cite`, `month` follow.)"""
 
 from __future__ import annotations
 
@@ -20,6 +20,27 @@ def _cmd_check(a: argparse.Namespace) -> int:
     report = check.run(book, opts)
     print(report.to_json() if a.json else report.render(ci=a.ci))
     return report.exit_code
+
+
+def _cmd_build(a: argparse.Namespace) -> int:
+    from . import render
+    book = open_book(a.root)
+    want_pdf = a.pdf is not None or not (a.html or a.single)
+    try:
+        if want_pdf:
+            out = Path(a.pdf) if a.pdf else book.root / "build" / "logbook.pdf"
+            from . import pdf
+            print(f"PDF: {pdf.build(book, out)}")
+        if a.html or a.single:
+            from . import html
+            if a.html:
+                print(f"HTML view: {html.build(book, Path(a.html))}")
+            if a.single:
+                print(f"HTML view (one file): {html.build(book, Path(a.single), single=True)}")
+    except render.RenderError as e:
+        print(f"logbook build: {e}", file=sys.stderr)
+        return 1
+    return 0
 
 
 def _cmd_schema(a: argparse.Namespace) -> int:
@@ -54,6 +75,12 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--ci", action="store_true", help="never print the text a finding matched")
     c.add_argument("--json", action="store_true")
     c.set_defaults(func=_cmd_check)
+
+    b = sub.add_parser("build", help="the PDF (default: build/logbook.pdf) and the HTML view")
+    b.add_argument("--pdf", nargs="?", const="", help="write the PDF here (default build/logbook.pdf)")
+    b.add_argument("--html", help="write the HTML view into this folder (index.html + files/)")
+    b.add_argument("--single", help="write the HTML view as one self-contained file")
+    b.set_defaults(func=_cmd_build)
 
     s = sub.add_parser("schema", help="print the JSON Schema of the entry header")
     s.set_defaults(func=_cmd_schema)

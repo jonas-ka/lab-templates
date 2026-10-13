@@ -15,5 +15,9 @@ jobs:
       - name: Compile the examples (PDF/UA-1)
         run: make check
       - uses: astral-sh/setup-uv@v6
-      - name: Log-book format (tests, example book)
+      - name: Install pandoc 3.12 (the log book's rendering)
+        run: |
+          curl -fsSL -o /tmp/pandoc.deb https://github.com/jgm/pandoc/releases/download/3.12/pandoc-3.12-1-amd64.deb
+          sudo dpkg -i /tmp/pandoc.deb
+      - name: Log-book format (tests, example book, its PDF and HTML view)
         run: make logbook
