@@ -2,6 +2,14 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.15 (2026-10-13)
+
+- `labfig.save` restores the axes positions the script left before laying out each file, so every
+  file gets exactly one layout pass at its own resolution, from the same starting state, as a
+  script's own `savefig(bbox_inches="tight")` would. A constrained layout that never settles no
+  longer drifts from PDF to SVG to PNG (v2026.10.14 let the PNG, drawn last, come out 2 % off for
+  the FastSims flight-potential figure). The three files of a version are now consistent.
+
 ## v2026.10.14 (2026-10-13)
 
 - `labfig.save` lays out and measures each file at its own resolution (the PNG at 300 dpi, PDF

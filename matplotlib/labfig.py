@@ -373,12 +373,17 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
         if drive_folder:
             line2 += [(" · Drive: ", None), (drive_folder, drive_url)]
     rc_dpi = plt.rcParams["savefig.dpi"]
+    # Each file gets one layout pass at its own resolution, from the state the script left the
+    # figure in, and that layout stays frozen while the file is written; as savefig's
+    # bbox_inches="tight" does for a script's own save. Restoring the axes positions first keeps
+    # a constrained layout that never settles (equal-aspect axes with a colour bar move on every
+    # draw) from drifting from file to file, and the strip from missing the bottom edge.
+    start = [(ax, ax.get_position(original=True).frozen(), ax.get_position().frozen()) for ax in fig.axes]
     for ext in formats:
         dpi = 300 if ext == "png" else (fig.dpi if rc_dpi == "figure" else float(rc_dpi))
-        # As savefig(bbox_inches="tight") does, per file: lay out and measure at the file's own
-        # resolution, then freeze that layout for the save (a constrained layout that does not
-        # settle, e.g. equal-aspect axes with a colour bar, would otherwise move between the
-        # measuring draw and the saving one, and the strip would miss the bottom edge).
+        for ax, original, active in start:
+            ax._set_position(original, which="original")
+            ax._set_position(active, which="active")
         old_dpi = fig.dpi
         try:
             fig.set_dpi(dpi)
