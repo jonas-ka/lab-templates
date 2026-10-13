@@ -26,6 +26,7 @@
 
 // Palette, panels, radii, `lifted`, `caption-line`: shared with the poster and notes themes.
 #import "tokens.typ": *
+#import "figure-strip.typ": strip-image, entry-strip
 // Spoken math: `speak(body)` drafts an equation's alt text; `eq(alt: auto)` uses it.
 #import "speak-math.typ": speak, apply-alts, math-body, spoken-eq
 
@@ -60,12 +61,17 @@
 ///   #fig("/assets/figures/x.svg", alt: "...", width: 60%)
 /// It never grows taller than `max-height` (the slide body under the header is ~300pt),
 /// so a tall figure scales down instead of pushing the slide onto a second page.
-#let fig(path, alt: none, width: 100%, max-height: 290pt, caption: none) = {
+/// `strip`: the height of an information strip below the figure (labfig.py), cut off here.
+#let fig(path, alt: none, width: 100%, max-height: 290pt, caption: none, strip: 0pt) = {
   assert(alt != none, message: "every figure needs alt text (catalog `alt`)")
   // No `figure` element: slides need no figure numbers, and numbered figures inside
   // pause steps keep Typst's layout from converging.
   block(width: width, {
-    box(width: 100%, height: max-height, image(path, width: 100%, height: 100%, fit: "contain", alt: alt))
+    box(width: 100%, height: max-height, if strip > 0pt {
+      align(center + horizon, strip-image(path, strip: strip, alt: alt, width: 100%, height: 100%))
+    } else {
+      image(path, width: 100%, height: 100%, fit: "contain", alt: alt)
+    })
     if caption != none {
       v(2pt)
       align(center, text(size: 11pt, style: "italic", fill: muted, caption))
@@ -125,7 +131,7 @@
   let path = e.at("svg", default: none)
   if path == none { path = e.at("file", default: none) }
   assert(path != none, message: "asset " + id + " has no file; run `talks generate` to materialize it")
-  fig("/assets/" + path, alt: e.alt, width: width, max-height: max-height, caption: caption)
+  fig("/assets/" + path, alt: e.alt, width: width, max-height: max-height, caption: caption, strip: entry-strip(e))
 }
 
 /// A catalog equation (LaTeX rendered through mitex, alt from the catalog):

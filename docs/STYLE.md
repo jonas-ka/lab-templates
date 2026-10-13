@@ -86,4 +86,7 @@ size for slides and papers; posters get their own variant). The rules that a sty
 enforce: one colour per *thing* kept across panels and figures; annotations in black with the colour
 on the marker or line; **text never on data** (labels in empty regions, end labels beside the
 curve end, else a leader line); `plt.subplots` for every figure; save PDF + SVG + PNG
-(300 dpi) from the same figure object with `bbox_inches="tight"`; captions one line.
+(300 dpi) from the same figure object, with `labfig.save` (`matplotlib/labfig.py`): versioned
+file names (`-vN`, never overwritten), the information strip below the figure (author, dates,
+version, template, data fingerprint, Drive folder; cut off in documents, automatically by the
+themes) and a record per version; captions one line.

@@ -2,6 +2,41 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.10 (2026-10-13)
+
+- **Information strip below figures** (`matplotlib/labfig.py`, new): `labfig.save(fig, path,
+  author=, created=, modified_by=, modified=, drive_folder=, drive_url=)` writes PDF, SVG and a
+  300 dpi PNG from the same figure and adds a 0.4 in band under a dashed cut line: who made the
+  figure and when, who changed it last and when, the lab-templates version and git id (linked
+  to the repository; in a consumer, the upstream commit of the last subtree pull), and the Drive
+  folder (name as text, linked in PDF and SVG). Cut it off in documents. `labfig.style()`
+  applies the lab style (STIXGeneral where STIX Two is missing, e.g. Colab). The Drive link is
+  passed in by whoever saves the figure, never stored here.
+- **Themes cut the strip off:** a catalog entry with `info_strip: 0.4` is shown without its
+  bottom 0.4 in by `cat-fig` (slides, notes, posters), and `fig(..., strip: 0.4in)` does it for a
+  path (`themes/figure-strip.typ`, new). Entries without the field are shown whole, as before.
+- **Figure versions in the file name, never overwritten:** `labfig.save(..., version=N)` writes
+  `<name>-vN.pdf/.svg/.png`, shows "Version N" on the strip's first line, and refuses to write
+  a version whose files exist (the error names the next free number); `draft=True` writes
+  `<name>-draft.*` for work in progress. `labfig.versions(path)` lists the existing versions.
+- **What made each version, kept without duplicating anything large:** the record
+  `<name>-vN.yaml` (author, dates, version, template id, the script's repository and commit
+  without credentials, data files with checksums, Drive folder; relative paths only), a copy of
+  the script in `code/<script>-vN.py` (`code=None` for scripts in git, `code=<path>` for a
+  notebook), and the **data fingerprint** (`data=[files]`, SHA-256 over names and contents;
+  first 7 characters on the strip, `labfig.fingerprint()` to check data later; `data_id=` adds
+  a label). `save` warns when a data file an earlier version used has changed in place.
+- `docs/FIGURES_README.md`: one folder per figure with every version side by side (nothing
+  overwritten, moved or renamed; replaces moving the old version into `v<N>_<date>_<name>/`,
+  which older folders keep); changed data gets a new file name; a new folder only for a
+  different figure; variants as `<name>-poster-vN`; `figure.yaml` keeps caption, alt text and
+  topic.
+- Example figure and `plot_cpi.py` saved with `labfig`, now version 3 (`…-v3.pdf/.svg/.yaml`;
+  the strip is a visual change), with the data fingerprint, `info_strip: 0.4` in the catalog;
+  the Colab notebook loads `labfig` from this repository and saves with it; its intro follows
+  the current figure rules. `docs/FIGURES_README.md`, `docs/STYLE.md`, `README.md` describe the
+  strip.
+
 ## v2026.10.9 (2026-10-13)
 
 - Notes theme (`themes/karthein-notes.typ`), from `phys689-nucl-exp`: `notes(page: (:))` passes

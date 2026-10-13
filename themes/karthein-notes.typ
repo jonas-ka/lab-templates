@@ -26,6 +26,7 @@
 //   typst compile --root . --features html --format html --input mode=student <file>.typ
 
 #import "tokens.typ": *
+#import "figure-strip.typ": strip-image, entry-strip
 #import "speak-math.typ": speak, apply-alts, math-body, spoken-eq
 
 #let mode = sys.inputs.at("mode", default: "student")
@@ -54,9 +55,11 @@
 // ---------------------------------------------------------------- figures
 /// A numbered figure with mandatory alt text and a caption:
 ///   #fig("/assets/figures/x.svg", alt: "...", width: 70%, caption: [Free-body diagram of the block.])
-#let fig(path, alt: none, width: 80%, caption: none, label: none) = {
+/// `strip`: the height of an information strip below the figure (labfig.py), cut off here.
+#let fig(path, alt: none, width: 80%, caption: none, label: none, strip: 0pt) = {
   assert(alt != none, message: "every figure needs alt text")
-  let f = figure(image(path, width: width, alt: alt), caption: caption)
+  let img = if strip > 0pt { strip-image(path, strip: strip, alt: alt, width: width) } else { image(path, width: width, alt: alt) }
+  let f = figure(img, caption: caption)
   if label != none { [#f #label] } else { f }
 }
 
@@ -68,7 +71,7 @@
   if path == none { path = e.at("file", default: none) }
   assert(path != none, message: "asset " + id + " has no file; run `talks generate` to materialize it")
   let cap = if caption == auto { e.at("caption", default: none) } else { caption }
-  fig("/assets/" + path, alt: e.alt, width: width, caption: cap, label: label)
+  fig("/assets/" + path, alt: e.alt, width: width, caption: cap, label: label, strip: entry-strip(e))
 }
 
 // ---------------------------------------------------------------- equations
