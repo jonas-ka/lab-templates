@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        repo: [jonas-ka/talks-repo, jonas-ka/phys206-mechanics, jonas-ka/phys689-nucl-exp, jonas-ka/karthein-cv]
+        repo: [jonas-ka/talks-repo, jonas-ka/phys206-mechanics, jonas-ka/phys689-nucl-exp, jonas-ka/karthein-cv, jonas-ka/cyclotron-talks]
     env:
       TOKEN: ${{ secrets.CONSUMER_TOKEN }}
     steps:
