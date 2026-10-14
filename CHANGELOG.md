@@ -2,6 +2,19 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.22 (2026-10-13)
+
+Found migrating the ion-source log book:
+
+- `logbook migrate`: a reference to a figure (`@fig-source`) becomes a link to the entry or wiki
+  page that holds the figure ("the figure on …"), not a citation that fails the check; the
+  figure's label is removed. Images in the project background are copied next to the wiki page
+  (`wiki/projects/figures/`); before, the page pointed at a file that was not there.
+- `logbook build`: an entry's or wiki page's own headings are renumbered without gaps (`##` then
+  `####` become levels 3 and 4 under a note); a skipped level made the PDF/UA-1 build fail.
+- Figure captions and alt text are shown as plain text in both outputs, so Markdown in them
+  (`**bold**`, `` `code` ``, links) no longer shows its marks.
+
 ## v2026.10.21 (2026-10-13)
 
 Found with the lab's first entry through the form on GitHub:

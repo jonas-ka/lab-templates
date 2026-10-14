@@ -130,3 +130,19 @@ def test_math_gets_alt_text_under_pdf_ua(tmp_path):
     pdf.build(open_book(book), out)            # PDF/UA-1 fails on an equation without alt text
     src = out.with_suffix(".typ").read_text()
     assert 'alt: "m"' in src and "math.equation(block: true" in src
+
+
+def test_captions_are_plain_text():
+    assert render.plain("The **pinhole**, *very* narrow (`fig-x`); see [the doc](https://x.y); 2*3*4") == \
+        "The pinhole, very narrow (fig-x); see the doc; 2*3*4"
+
+
+@needs_pandoc
+@needs_typst
+def test_headings_in_an_entry_are_renumbered_without_gaps(tmp_path):
+    book = tmp_path / "book"
+    shutil.copytree(EXAMPLE, book)
+    (book / "entries" / "2026" / "2026-10-07-0900-aa-procedure.md").write_text(
+        "---\ndate: 2026-10-07\ntime: \"09:00\"\nauthors: [aa]\nkind: note\nproject: Example experiment\n"
+        "title: Procedure\n---\n\nText.\n\n## Procedure\n\nSteps.\n\n#### Detail\n\nMore.\n")
+    pdf.build(open_book(book), book / "build" / "out.pdf")   # PDF/UA-1 fails on a skipped heading level

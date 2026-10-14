@@ -245,7 +245,8 @@ TYPST = r'''#import "labnotes-template.typ": *
 
 = Project background
 
-#context-box[*Programme.* What the project is for.]
+#context-box[*Programme.* What the project is for. Schematic: @fig-bg.]
+#figure(image("fig-bg.png", width: 50%), caption: [The schematic.]) <fig-bg>
 #refs(("Code": raw("src/"),))
 
 #entry("2026-09-04", "Old style entry with a figure", tags: ("a", "b"),
@@ -253,14 +254,14 @@ TYPST = r'''#import "labnotes-template.typ": *
 Text with HV_Drift and M2_2–M2_6 by 5 V.
 
 #finding[It *works*: 38 %.]
-#figure(image("fig-test.svg", width: 100%), caption: [The test figure.])
+#figure(image("fig-test.svg", width: 100%), caption: [The test figure.]) <fig-old>
 #refs(("Script": raw("scripts/x.py"), "Note": [see `y`]))
 ]
 
 #day("2026-10-01", "A day", authors: [A. Author])[
 
 #note("Ion source", "First note of the day", tags: ("scan",))[
-#decision[Use −120 V.]
+#decision[Use −120 V, as in @fig-old and @fig-bg.]
 #todo[
   - Repeat at 1 kV.
 ]
@@ -282,6 +283,7 @@ def test_migrate_a_typst_log_book(tmp_path):
     src = init_repo(tmp_path / "src")
     (src / "notes").mkdir()
     shutil.copy(FIG.with_suffix(".svg"), src / "notes" / "fig-test.svg")
+    shutil.copy(FIG.with_suffix(".png"), src / "notes" / "fig-bg.png")
     (src / "notes" / "test-logbook.typ").write_text(TYPST)
     git(src, "add", "-A")
     git(src, "commit", "-q", "-m", "the log book")
@@ -304,6 +306,11 @@ def test_migrate_a_typst_log_book(tmp_path):
     assert r.background.name == "example-experiment-migrated.md"            # the existing page is not overwritten
     wiki = r.background.read_text()
     assert "Programme." in wiki and "**Code:** `src/`" in wiki
+    assert "](figures/fig-bg-v1.png)" in wiki and (r.background.parent / "figures" / "fig-bg-v1.png").exists()
+    assert "Schematic: the figure on this page." in wiki and "LBDEF" not in wiki and "{#fig-bg}" not in wiki
+    old_id = next(p.stem for p in r.entries if "old-style" in p.stem)
+    assert f"as in the figure on [[{old_id}]] and the figure on [[wiki:projects/example-experiment-migrated]]" in first
+    assert not r.unresolved_refs and "LBDEF" not in old
     rep = check.run(open_book(book.root), check.Options(today="2026-10-13"))
     assert not [f for f in rep.findings if f.level == "fail"], rep.render()
 

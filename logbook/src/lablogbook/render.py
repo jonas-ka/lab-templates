@@ -98,7 +98,18 @@ def png_size(png: Path) -> tuple[int, int] | None:
     return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
 
 
+def plain(md: str) -> str:
+    """Caption or alt text as plain text: Markdown's emphasis, code and link marks taken out
+    (figures show their caption as text in both outputs)."""
+    s = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", md or "")
+    s = re.sub(r"(\*\*|__)(.+?)\1", r"\2", s)
+    s = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"\1", s)
+    s = re.sub(r"`([^`]*)`", r"\1", s)
+    return re.sub(r"\\([\\`*_\[\]<>#])", r"\1", s)
+
+
 def make_fig(key: str, src: Path, caption: str, alt: str, label: str | None = None) -> Fig:
+    caption, alt = plain(caption), plain(alt)
     stem = src.with_suffix("")
     svg = src if src.suffix.lower() == ".svg" else (stem.with_suffix(".svg") if stem.with_suffix(".svg").exists() else None)
     png = src if src.suffix.lower() in (".png", ".jpg", ".jpeg") else (stem.with_suffix(".png") if stem.with_suffix(".png").exists() else None)

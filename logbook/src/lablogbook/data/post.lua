@@ -15,8 +15,16 @@ local HTML_LABEL = {decision = "Decision", finding = "Finding", issue = "Issue â
 
 local function str(v) return v and pandoc.utils.stringify(v) or nil end
 
-local function shift_headers(blocks, by)
-  return pandoc.Blocks(blocks):walk({Header = function(h) h.level = math.min(h.level + by, 6); return h end})
+-- An entry's or wiki page's own headings, renumbered to consecutive levels from `top` down
+-- (`##` then `####` become top, top + 1): PDF/UA-1 does not allow a skipped level.
+local function shift_headers(blocks, top)
+  local used = {}
+  pandoc.Blocks(blocks):walk({Header = function(h) used[h.level] = true end})
+  local map, next_level = {}, top
+  for level = 1, 6 do
+    if used[level] then map[level] = math.min(next_level, 6); next_level = next_level + 1 end
+  end
+  return pandoc.Blocks(blocks):walk({Header = function(h) h.level = map[h.level]; return h end})
 end
 
 local function esc(s)
@@ -54,10 +62,10 @@ local function Div(el)
   if el.classes:includes("lb-entry") or el.classes:includes("lb-wiki") then
     local id = el.attributes["data-id"]
     local kind = el.classes:includes("lb-entry") and "ENTRY" or "WIKI"
-    local by = kind == "ENTRY" and 2 or 1
+    local top = kind == "ENTRY" and 3 or 2   -- under a day (1) and its note (2); under "Projects" (1)
     -- pandoc does not run this filter again on what a handler returns, so convert the
     -- blocks inside the entry here (bottom-up, so nested blocks are handled first)
-    local content = shift_headers(el.content, by):walk({Div = inner})
+    local content = shift_headers(el.content, top):walk({Div = inner})
     local marker = typst and pandoc.RawBlock("typst", "// @@" .. kind .. " " .. id)
                           or pandoc.RawBlock("html", "<!--@@" .. kind .. " " .. id .. "-->")
     local out = pandoc.Blocks({marker})

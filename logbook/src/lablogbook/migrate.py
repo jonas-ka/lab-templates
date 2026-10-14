@@ -340,11 +340,14 @@ class Report:
     svg_missing: list = field(default_factory=list)
     no_history: int = 0
     missing_files: list = field(default_factory=list)
+    unresolved_refs: list = field(default_factory=list)
 
     def render(self, book: Book) -> str:
         lines = [f"migrated {len(self.entries)} entries into {book.rel(book.entries_dir)}/"]
         if self.background:
             lines.append(f"project background: {book.rel(self.background)}")
+        if self.unresolved_refs:
+            lines.append(f"REFERENCES TO LABELS NOT FOUND (left as text): {', '.join(sorted(set(self.unresolved_refs)))}")
         if self.unknown_authors:
             lines.append(f"UNKNOWN AUTHORS (add to people.yaml or pass --author NAME=handle): {', '.join(sorted(self.unknown_authors))}")
         if self.alt_from_caption:
@@ -400,6 +403,21 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
     m = re.search(r'\bproject:\s*"([^"]+)"', text)
     proj = project or (m.group(1) if m else source.stem)
 
+    # Typst labels (`<fig-source>` after a figure) and references to them (`@fig-source`): pandoc
+    # would read a reference as a citation. Both become placeholders that survive pandoc; after
+    # the migration a reference becomes a link to the entry or wiki page that holds the label.
+    labels = list(dict.fromkeys(re.findall(r"(?<=[\])])[ \t]*<([A-Za-z][\w:.-]*)>", text)))
+    for i, lab in enumerate(labels):
+        text = re.sub(rf"(?<=[\])])([ \t]*)<{re.escape(lab)}>", f"\\1 LBDEF{i}LBDEF", text)
+        text = re.sub(rf"@{re.escape(lab)}\b", f"LBREF{i}LBREF", text)
+    where: dict[int, str] = {}           # label index -> "wiki:projects/x" or an entry id
+    written: list[Path] = []
+
+    def take_labels(md: str, target: str) -> str:
+        for k in re.findall(r"LBDEF(\d+)LBDEF", md):
+            where[int(k)] = target
+        return re.sub(r"\s*LBDEF\d+LBDEF", "", md)
+
     # the project background: from "= Project background" to the first entry or day
     top = calls(text, {"day", "entry"})
     bg = re.search(r"^=\s+Project background\s*$", text, re.M)
@@ -413,8 +431,17 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
             refs = "\n## Where things live\n\n" + refs
         if page.exists():   # never overwrite a page: the background goes next to it, to be merged by hand
             page = page.with_name(f"{_slug(proj)}-migrated.md")
-        page.write_text(f"# {proj}\n\n*Project background, migrated from `{source.name}` ({repo_name}).*\n\n{b.md}\n{refs}", encoding="utf-8")
+        md = take_labels(b.md, "wiki:" + page.relative_to(book.wiki_dir).with_suffix("").as_posix())
+        for path, _cap in b.figures:   # images of the background go next to the wiki page
+            src = source.parent / path
+            if not src.exists():
+                report.missing_files.append(path)
+                continue
+            newname = _figure_files(src, page.parent / "figures", report)
+            md = md.replace(f"]({path})", f"](figures/{newname})")
+        page.write_text(f"# {proj}\n\n*Project background, migrated from `{source.name}` ({repo_name}).*\n\n{md}\n{refs}", encoding="utf-8")
         report.background = page
+        written.append(page)
 
     def days_and_entries(s: str):
         """Top-level #day and #entry calls, and #day calls nested in a day's body (a missing ']'
@@ -509,6 +536,21 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
                 path = folder / f"{eid}-{k}.md"
                 k += 1
             folder.mkdir(parents=True, exist_ok=True)
+            md = take_labels(md, path.stem)
             path.write_text(dump_entry(header, md), encoding="utf-8")
             report.entries.append(path)
+            written.append(path)
+
+    def link(i: int, here: str) -> str:
+        if i not in where:
+            report.unresolved_refs.append(labels[i])
+            return f"figure `{labels[i]}` (in the original log book)"
+        return "the figure on this page" if where[i] == here else f"the figure on [[{where[i]}]]"
+
+    for f in written:   # references, now that every label's place is known
+        s = f.read_text(encoding="utf-8")
+        here = ("wiki:" + f.relative_to(book.wiki_dir).with_suffix("").as_posix()
+                if f.is_relative_to(book.wiki_dir) else f.stem)
+        if "LBREF" in s:
+            f.write_text(re.sub(r"LBREF(\d+)LBREF", lambda m: link(int(m.group(1)), here), s), encoding="utf-8")
     return report
