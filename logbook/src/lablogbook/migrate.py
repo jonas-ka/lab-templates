@@ -398,6 +398,10 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
     repo_name = repo.name
     mapping = mapping or {}
     report = Report()
+
+    def resolve(path: str) -> Path:
+        """A path as Typst reads it: `/…` from the project root (the repository), else from the file."""
+        return repo / path.lstrip("/") if path.startswith("/") else source.parent / path
     # the project: --project, else the title block's `project:`; a #note's own project name
     # (a line of work inside the project) becomes the entry's subproject
     m = re.search(r'\bproject:\s*"([^"]+)"', text)
@@ -433,7 +437,7 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
             page = page.with_name(f"{_slug(proj)}-migrated.md")
         md = take_labels(b.md, "wiki:" + page.relative_to(book.wiki_dir).with_suffix("").as_posix())
         for path, _cap in b.figures:   # images of the background go next to the wiki page
-            src = source.parent / path
+            src = resolve(path)
             if not src.exists():
                 report.missing_files.append(path)
                 continue
@@ -508,7 +512,7 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
             md = b.md
             figs = []
             for path, cap in b.figures:
-                src = (source.parent / path)
+                src = resolve(path)
                 if not src.exists():
                     report.missing_files.append(path)
                     continue

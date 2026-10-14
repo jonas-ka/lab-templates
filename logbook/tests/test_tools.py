@@ -254,7 +254,7 @@ TYPST = r'''#import "labnotes-template.typ": *
 Text with HV_Drift and M2_2–M2_6 by 5 V.
 
 #finding[It *works*: 38 %.]
-#figure(image("fig-test.svg", width: 100%), caption: [The test figure.]) <fig-old>
+#figure(image("/notes/fig-test.svg", width: 100%), caption: [The test figure.]) <fig-old>
 #refs(("Script": raw("scripts/x.py"), "Note": [see `y`]))
 ]
 

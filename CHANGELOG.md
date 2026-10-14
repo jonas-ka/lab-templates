@@ -2,6 +2,11 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.23 (2026-10-13)
+
+- `logbook migrate`: a figure path starting with `/` is read from the repository root, as Typst
+  reads it (`image("/notes/fig.png")`); before, such figures were reported missing.
+
 ## v2026.10.22 (2026-10-13)
 
 Found migrating the ion-source log book:
