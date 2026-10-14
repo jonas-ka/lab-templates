@@ -503,10 +503,13 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
                     header["backfilled"] = bf or when[:10]
                 elif late == 0:
                     header["time"] = dt.datetime.fromisoformat(when).strftime("%H:%M")
-            else:
+            else:   # not found in git history: logged now, by the migration
                 report.no_history += 1
+                today = book.now().date()
                 if bf:
                     header["backfilled"] = bf
+                elif (today - dt.date.fromisoformat(date)).days > book.config["late_days"]:
+                    header["backfilled"] = today.isoformat()
             year = date[:4]
             folder = book.entries_dir / year
             md = b.md

@@ -2,6 +2,16 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.24 (2026-10-13)
+
+Found with the first migration pull requests on GitHub:
+
+- `logbook check` in a pull request: a migrated entry (`migrated_from` and `logged`) is late only
+  if it was late when its source was committed; before, every migrated entry older than two days
+  failed. Only an admin may submit migrated entries, so the fields cannot excuse a late entry.
+- `logbook migrate`: a note not found in git history and older than `late_days` gets
+  `backfilled:` with the day of the migration.
+
 ## v2026.10.23 (2026-10-13)
 
 - `logbook migrate`: a figure path starting with `/` is read from the repository root, as Typst

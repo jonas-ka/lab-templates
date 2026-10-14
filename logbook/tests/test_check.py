@@ -355,3 +355,16 @@ def test_wiki_page_reviewed_header(tmp_path):
     assert hit and hit[0].level == "warn" and hit[0].line == 6
     meta, body, n = render.wiki_split(page.read_text())
     assert meta == {"reviewed": ["health"]} and body.startswith("# Laser safety") and n == 3
+
+
+def test_migrated_entries_are_late_by_their_logged_date(book_dir):
+    mig = "migrated_from: src@0123456789ab\nlogged: \"2026-09-02T10:00:00-05:00\"\n"
+    write_entry(book_dir, "2026-09-01-0900-aa-migrated", note("2026-09-01-0900-aa-migrated", mig))
+    r = pr(book_dir, "c-chair-example")                     # an admin migrates on the author's behalf
+    assert "late" not in codes(r) and "migrated" not in codes(r), r.render()
+
+
+def test_migrated_fields_do_not_excuse_a_late_entry_from_a_member(book_dir):
+    mig = "migrated_from: src@0123456789ab\nlogged: \"2026-09-02T10:00:00-05:00\"\n"
+    write_entry(book_dir, "2026-09-01-0900-aa-dodge", note("2026-09-01-0900-aa-dodge", mig))
+    assert "migrated" in codes(pr(book_dir, "a-author-example"), "fail")

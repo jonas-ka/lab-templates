@@ -211,9 +211,15 @@ def check_entry(book: Book, e: Entry, st: state.State, report: Report, opts: Opt
         return
     if _days(date, today) > 1:
         report.add("fail", "date", rel, _header_line(e, "date"), "dated in the future")
-    if new and _days(today, date) > book.config["late_days"] and not h.get("backfilled"):
+    # a migrated entry was written when its source was committed (`logged`), not today; only an
+    # admin migrates, so the fields cannot be used to dodge the rule
+    migrated = bool(h.get("migrated_from") and h.get("logged"))
+    if new and migrated and opts.submitter and book.people is not None and not book.is_admin(opts.submitter):
+        report.add("fail", "migrated", rel, _header_line(e, "migrated_from"), "only an admin submits migrated entries")
+    written = str(h["logged"])[:10] if migrated else today
+    if new and _days(written, date) > book.config["late_days"] and not h.get("backfilled"):
         report.add("fail", "late", rel, _header_line(e, "date"),
-                   f"written more than {book.config['late_days']} days after the work: add 'backfilled: {today}'")
+                   f"written more than {book.config['late_days']} days after the work: add 'backfilled: {written}'")
     if h.get("backfilled") and _days(h["backfilled"], date) < 0:
         report.add("fail", "date", rel, _header_line(e, "backfilled"), "backfilled before the date of the work")
 
