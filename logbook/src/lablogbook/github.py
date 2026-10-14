@@ -202,7 +202,15 @@ def from_issue(book: Book, number: int, submitter: str, repo: str, out) -> int:
     from . import check, connect, newentry
     from .book import open_book
 
-    issue = json.loads(_gh("issue", "view", str(number), "--repo", repo, "--json", "body,title"))
+    issue = json.loads(_gh("issue", "view", str(number), "--repo", repo, "--json", "body,title,state"))
+    branch = f"entry/issue-{number}"
+    # One issue, one entry: an issue that is closed, or whose entry has merged, is done. (Opening an
+    # issue with its label fires two events; an edit after the merge must not make a second entry.)
+    merged = _gh("pr", "list", "--repo", repo, "--head", branch, "--state", "merged", "--json", "number",
+                 "-q", "length", check=False).strip()
+    if issue.get("state", "OPEN") != "OPEN" or merged not in ("", "0"):
+        print(f"issue #{number} is already done", file=out)
+        return 0
     answers = parse_issue_body(issue.get("body", ""))
     person = book.person_by_login(submitter)
 
@@ -213,7 +221,6 @@ def from_issue(book: Book, number: int, submitter: str, repo: str, out) -> int:
         tell(f"@{submitter} is not in people.yaml, so this cannot become an entry yet. Ask the PI to add you.")
         return 1
     root = book.root
-    branch = f"entry/issue-{number}"
     connect.run(["git", "-C", str(root), "fetch", "-q", "origin", "main"])
     connect.run(["git", "-C", str(root), "switch", "-q", "-C", branch, "origin/main"])
     with tempfile.TemporaryDirectory() as tmp:
@@ -239,12 +246,15 @@ def from_issue(book: Book, number: int, submitter: str, repo: str, out) -> int:
     connect.run(["git", "-C", str(root), "push", "-q", "-f", "origin", branch])
     sha = connect.run(["git", "-C", str(root), "rev-parse", "HEAD"]).strip()
     url = _gh("pr", "create", "--repo", repo, "--head", branch, "--base", "main", "--title", f"Entry: {h['title']}",
-              "--body", f"From #{number}, written by @{submitter}. Closes #{number}.", check=False).strip()
+              "--body", f"From #{number}, written by @{submitter}.\n\nCo-authored-by: {name} <{email}>",
+              check=False).strip()
     if not url:
         url = _gh("pr", "view", branch, "--repo", repo, "--json", "url", "-q", ".url", check=False).strip()
     _gh("api", f"repos/{repo}/statuses/{sha}", "-f", "state=success", "-f", "context=entry-checks",
         "-f", f"description=checked in entry-from-issue as @{submitter}", check=False)
     _gh("pr", "merge", "--repo", repo, "--auto", "--squash", url, check=False)
-    tell(f"Entry `{path.stem}` passed the checks: {url} (it merges itself).")
+    # A merge by the workflow's token does not apply "Closes #N", so the issue is closed here.
+    _gh("issue", "close", str(number), "--repo", repo, "--comment",
+        f"Entry `{path.stem}` passed the checks: {url} (it merges itself).", check=False)
     print(f"pull request: {url}", file=out)
     return 0

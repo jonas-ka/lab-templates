@@ -8,6 +8,7 @@ submit on behalf of others.
 
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
@@ -28,7 +29,8 @@ DEFAULTS = {
     "limits": {"warn_mb": 2, "fail_mb": 5},
     "late_days": 2,          # an entry dated earlier than this before it is logged needs `backfilled`
     "coauthor_days": 14,     # people who logged on the same project this recently are proposed
-    "forbid_drive_ids": False,  # True: Drive links in entries and wiki fail (figure files are never scanned)
+    "forbid_drive_ids": False,
+    "timezone": None,        # IANA name (America/Chicago): dates and times of new entries, also on a UTC runner  # True: Drive links in entries and wiki fail (figure files are never scanned)
 }
 
 
@@ -72,6 +74,14 @@ class Book:
     @property
     def bib_path(self) -> Path:
         return self.root / self.config["bibliography"]
+
+    def now(self) -> dt.datetime:
+        """The current time in the book's time zone (`timezone:` in logbook.yaml), else the machine's."""
+        tz = self.config.get("timezone")
+        if tz:
+            from zoneinfo import ZoneInfo
+            return dt.datetime.now(ZoneInfo(tz))
+        return dt.datetime.now().astimezone()
 
     def rel(self, p: Path) -> str:
         try:

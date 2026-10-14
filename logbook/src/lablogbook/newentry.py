@@ -157,7 +157,7 @@ def place_files(book: Book, header: dict, body: str, base: Path, year: str) -> s
 
 def build(book: Book, header: dict, body: str, base: Path, opts: Options) -> tuple[Path, dict, str]:
     """Write the entry into `book`. Returns (path, header, body)."""
-    now = dt.datetime.now()
+    now = book.now()
     today = opts.today or now.date().isoformat()
     h = dict(header)
     handle = opts.handle or connect.user_handle(book)

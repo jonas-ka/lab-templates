@@ -2,6 +2,20 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.21 (2026-10-13)
+
+Found with the lab's first entry through the form on GitHub:
+
+- **`timezone:` in `logbook.yaml`** (IANA name, e.g. `America/Chicago`): new entries, the
+  checker's "today", the view and the reports use it. Without it, an entry from the form was
+  dated by the runner's UTC clock (19:59 in Texas became the next day, 00:59).
+- **Entry from the form, once:** the workflow runs one at a time per issue, and an issue that is
+  closed or whose entry has merged is left alone. Opening an issue with its label fires two
+  events, which raced; an edit after the merge would have made a second entry.
+- The workflow closes the issue itself when the entry is set to merge ("Closes #N" is not
+  applied to a merge by the workflow's token), and the merge commit names the author as
+  co-author. **Run `logbook init-github --force`** in a central book to get the new workflow.
+
 ## v2026.10.20 (2026-10-13)
 
 - `logbook build`: formulas in entries and wiki pages get their TeX source as alt text in the

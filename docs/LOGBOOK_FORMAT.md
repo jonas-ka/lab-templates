@@ -284,6 +284,13 @@ from them).
 | `workflows/logbook-monthly.yml` | the 1st of each month | The previous month's PDF, the whole book and the sources as a release `snapshot/YYYY-MM`; waits for approval in the environment `attest`. |
 | `workflows/logbook-export.yml` | on request (Actions, "Run workflow") | An export; waits for approval in the environment `export` and logs the request on the issue "Exports". |
 
+The workflows run on GitHub's machines, whose clock is UTC: set `timezone:` in `logbook.yaml`
+(an IANA name, e.g. `America/Chicago`) so entries from the form, the view's "today" and the
+reports use the lab's date and time. A submitted form makes one entry: the workflow closes the
+issue when the entry's pull request is set to merge, and runs again only on an open issue whose
+entry has not merged (after an edit that fixes a failed check). The merge commit names the
+author as co-author.
+
 What the repository needs, set once by an owner:
 
 - **A ruleset on `main`**: pull requests only, the check `entry-checks` required, no force

@@ -6,6 +6,7 @@ name: entry-from-issue
 on:
   issues:
     types: [opened, edited, labeled]
+concurrency: {group: "entry-from-issue-${{ github.event.issue.number }}", cancel-in-progress: false}   # one run per issue at a time
 permissions:
   contents: write
   issues: write

@@ -17,7 +17,7 @@ def export(book: Book, f: Filter, out: Path, requested_by: str | None = None, ap
     entries = f.apply(book)
     if not entries:
         return None, 0
-    today = dt.date.today().isoformat()
+    today = book.now().date().isoformat()
     parts = [f"Export of {len(entries)} entries ({f.describe(book)}), made on {today}."]
     if requested_by:
         parts.append(f"Requested by {requested_by}.")
@@ -64,7 +64,7 @@ def month_pdf(book: Book, month: str, out_dir: Path) -> tuple[Path | None, int]:
 
 def digest(book: Book, today: str | None = None, days: int = 7) -> str:
     """The weekly summary (Markdown, for an issue): new entries, open items, expiring calibrations."""
-    t = dt.date.fromisoformat(today) if today else dt.date.today()
+    t = dt.date.fromisoformat(today) if today else book.now().date()
     since = (t - dt.timedelta(days=days)).isoformat()
     logged = render.logged_times(book)
     names = {h: p.name for h, p in (book.people or {}).items()}

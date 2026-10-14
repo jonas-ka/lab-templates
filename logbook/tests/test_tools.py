@@ -481,3 +481,29 @@ def test_cite_lab_journal_list_wins_over_crossref_short_title():
     msg = {**CROSSREF["message"], "container-title": ["International Journal of Mass Spectrometry"],
            "short-container-title": ["International Journal of Mass Spectrometry"]}
     assert cite.from_crossref(msg)[1]["shortjournal"] == "Int. J. Mass Spectrom."
+
+
+def test_from_issue_skips_an_issue_already_done(book_dir, monkeypatch):
+    calls = []
+    def fake_gh(*args, check=True):
+        calls.append(args)
+        if args[:2] == ("issue", "view"):
+            return json.dumps({"body": "", "title": "t", "state": "CLOSED"})
+        return "0"
+    monkeypatch.setattr(github, "_gh", fake_gh)
+    out = io.StringIO()
+    assert github.from_issue(open_book(book_dir), 7, "a-author-example", "o/r", out) == 0
+    assert "already done" in out.getvalue()
+    assert not any(a[:2] in (("issue", "comment"), ("pr", "create")) for a in calls)
+
+
+def test_book_time_zone_dates_new_entries(book_dir, tmp_path):
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    cfg = book_dir / "logbook.yaml"
+    cfg.write_text(cfg.read_text() + "timezone: Pacific/Kiritimati\n")    # UTC+14: never the UTC date's evening
+    book = open_book(book_dir)
+    assert book.now().utcoffset() == dt.timedelta(hours=14)
+    path, header, _ = newentry.build(book, {"title": "Zone", "project": "Example experiment", "kind": "note"},
+                                     "Text.\n", tmp_path, newentry.Options(handle="aa"))
+    assert header["date"] == dt.datetime.now(ZoneInfo("Pacific/Kiritimati")).date().isoformat()

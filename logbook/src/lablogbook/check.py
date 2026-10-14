@@ -176,7 +176,7 @@ def scan_text(book: Book, rel: str, text: str, report: Report, reviewed: set[str
 def check_entry(book: Book, e: Entry, st: state.State, report: Report, opts: Options, new: bool) -> None:
     rel = book.rel(e.path)
     h = e.header
-    today = opts.today or dt.date.today().isoformat()
+    today = opts.today or book.now().date().isoformat()
 
     # --- schema -------------------------------------------------------------------------------
     schema_ok = True

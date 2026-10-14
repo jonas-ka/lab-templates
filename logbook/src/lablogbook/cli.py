@@ -190,7 +190,7 @@ def _cmd_migrate(a) -> int:
 def _cmd_month(a) -> int:
     from . import render, reports
     book = open_book(a.root)
-    month = a.month or reports.previous_month()
+    month = a.month or reports.previous_month(book.now().date())
     try:
         path, n = reports.month_pdf(book, month, Path(os.path.expanduser(a.to)))
     except render.RenderError as e:

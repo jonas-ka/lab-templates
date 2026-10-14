@@ -72,7 +72,7 @@ def _site(book: Book) -> dict | None:
 
 def book_data(book: Book, p: render.Prepared, bodies: dict, wiki_html: dict, refs_html: dict) -> dict:
     st = p.st
-    today = dt.date.today().isoformat()
+    today = book.now().date().isoformat()
     entries = []
     for e in p.entries:
         h = e.header
@@ -158,7 +158,7 @@ def book_data(book: Book, p: render.Prepared, bodies: dict, wiki_html: dict, ref
             logo = _data_uri(lp)
             w, h = _image_size(lp)
             logo_wide = bool(w and h and w > 1.6 * h)
-    return {"title": book.config.get("title", "Log book"), "logo": logo, "logo_wide": logo_wide, "generated": dt.datetime.now().astimezone().isoformat(timespec="minutes"),
+    return {"title": book.config.get("title", "Log book"), "logo": logo, "logo_wide": logo_wide, "generated": book.now().isoformat(timespec="minutes"),
             "today": today, "version": __version__, "site": _site(book), "people": people, "projects": projects,
             "apparatus": apparatus, "kinds": list(book.kinds), "entries": entries, "wiki": wiki, "references": refs}
 
