@@ -2,6 +2,13 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.26 (2026-10-14)
+
+- `docs/FIGURES_README.md`, `matplotlib/labfig.py`: **when a figure version is frozen.** Once it
+  is committed to git, on the Drive or used in a document (talk, poster, paper, log-book entry);
+  before that it may be redrawn under the same number (delete its files first; `save` still
+  refuses to overwrite), and `draft=True` is the way to work on it. Documentation only.
+
 ## v2026.10.25 (2026-10-14)
 
 - **"New entry" form, shorter:** the issue's own title is the entry's title (the separate Title

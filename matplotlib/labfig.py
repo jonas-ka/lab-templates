@@ -16,7 +16,9 @@
 **A version is never overwritten:** if a file of that version exists, `save` stops and names
 the next free number; every visual change of the figure, and every change of its data, is a new
 version. While working on a figure, `draft=True` writes `<name>-draft.<ext>`, which may be
-overwritten (no record, no code copy).
+overwritten (no record, no code copy). A version counts as frozen once it is committed to git,
+on the Drive or used in a document; before that, delete its files to redraw it under the same
+number (`save` still refuses to overwrite them, so it is a deliberate step).
 
 With each version it keeps what made it, without duplicating anything large:
 - **the record** `<name>-v<N>.yaml`: author, dates, version, the lab-templates version, the

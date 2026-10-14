@@ -57,7 +57,10 @@ version follows this one.
 
    **A version is never overwritten:** `labfig.save` refuses to write a version whose files
    exist and names the next free number. While you are still working on the figure, save with
-   `draft=True` (`<name>-draft.*`, overwritten freely, no record).
+   `draft=True` (`<name>-draft.*`, overwritten freely, no record). **A version is frozen once
+   it has left your desk:** committed to git, put on the Drive, or used in a document (a talk,
+   poster, paper, log-book entry). Until then it may still be redrawn under the same number;
+   from then on every change is the next version. If unsure, save a draft.
 
    **The information strip** is a band under a dashed line at the bottom of every file: who
    made the figure and when, who changed it last and when (`modified_by`, `modified`), its
