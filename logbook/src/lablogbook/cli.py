@@ -179,7 +179,7 @@ def _cmd_migrate(a) -> int:
     mapping = dict(x.split("=", 1) for x in (a.author or []))
     try:
         r = migrate.migrate(Path(a.source), book, project=a.project, mapping=mapping,
-                            confirm_export_control=a.confirm_export_control)
+                            confirm_export_control=a.confirm_export_control, new_only=a.new_only)
     except migrate.MigrateError as e:
         print(f"logbook migrate: {e}", file=sys.stderr)
         return 1
@@ -315,6 +315,8 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("source"); m.add_argument("--project"); m.add_argument("--into", help="the log book to write into")
     m.add_argument("--author", action="append", metavar="NAME=handle")
     m.add_argument("--confirm-export-control", action="store_true", help="screenshots and photos were reviewed")
+    m.add_argument("--new-only", action="store_true",
+                   help="a carry-over: only entries not in the book yet (after an earlier migration of the same log book)")
     m.set_defaults(func=_cmd_migrate)
 
     mo = sub.add_parser("month", help="the PDF of the entries logged in a month")

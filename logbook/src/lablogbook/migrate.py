@@ -341,9 +341,16 @@ class Report:
     no_history: int = 0
     missing_files: list = field(default_factory=list)
     unresolved_refs: list = field(default_factory=list)
+    existing: int = 0                                   # new_only: entries the book had already
+    changed: list = field(default_factory=list)         # new_only: of those, the ones whose text differs
 
     def render(self, book: Book) -> str:
         lines = [f"migrated {len(self.entries)} entries into {book.rel(book.entries_dir)}/"]
+        if self.existing:
+            lines.append(f"{self.existing} entr(ies) already in the book, left as they are")
+        if self.changed:
+            lines.append("CHANGED SINCE THE EARLIER MIGRATION (entries are never rewritten: write a correction if it "
+                         "matters): " + ", ".join(self.changed))
         if self.background:
             lines.append(f"project background: {book.rel(self.background)}")
         if self.unresolved_refs:
@@ -389,13 +396,32 @@ def _figure_files(src: Path, dest_dir: Path, report: Report) -> str:
     return main.name
 
 
+# The title of the last #day a frozen Typst log book gets ("moved to …"); never migrated.
+FROZEN_DAY = "This log book has moved"
+
+
+def repo_name_of(repo: Path) -> str:
+    """The repository's name: from its `origin` remote (a clone in another folder keeps it), else its folder."""
+    url = subprocess.run(["git", "-C", str(repo), "remote", "get-url", "origin"],
+                         capture_output=True, text=True).stdout.strip()
+    name = re.sub(r"\.git$", "", url.rstrip("/")).rsplit("/", 1)[-1].rsplit(":", 1)[-1] if url else ""
+    return name or repo.name
+
+
+def _body(text: str) -> str:
+    """An entry file's text without its header."""
+    return text.split("\n---\n", 1)[-1].strip() if text.startswith("---") else text.strip()
+
+
 def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[str, str] | None = None,
-            default_kind: str = "note", confirm_export_control: bool = False) -> Report:
+            default_kind: str = "note", confirm_export_control: bool = False, new_only: bool = False) -> Report:
+    """`new_only`: only the entries the book does not have yet (a carry-over after an earlier migration
+    of the same log book); an entry that exists is left alone, and reported when its text differs."""
     source = source.resolve()
     text = source.read_text(encoding="utf-8")
     repo = Path(subprocess.run(["git", "-C", str(source.parent), "rev-parse", "--show-toplevel"],
                                capture_output=True, text=True).stdout.strip() or source.parent)
-    repo_name = repo.name
+    repo_name = repo_name_of(repo)
     mapping = mapping or {}
     report = Report()
 
@@ -415,6 +441,7 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
         text = re.sub(rf"(?<=[\])])([ \t]*)<{re.escape(lab)}>", f"\\1 LBDEF{i}LBDEF", text)
         text = re.sub(rf"@{re.escape(lab)}\b", f"LBREF{i}LBREF", text)
     where: dict[int, str] = {}           # label index -> "wiki:projects/x" or an entry id
+    compare: list[tuple[Path, str]] = []  # new_only: (existing entry, what the migration would write now)
     written: list[Path] = []
 
     def take_labels(md: str, target: str) -> str:
@@ -425,7 +452,13 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
     # the project background: from "= Project background" to the first entry or day
     top = calls(text, {"day", "entry"})
     bg = re.search(r"^=\s+Project background\s*$", text, re.M)
-    if bg:
+    if bg and new_only:   # a carry-over leaves the wiki page alone, but learns where its labels live
+        b = convert(text[bg.end():(top[0].start if top else len(text))], source.parent)
+        page = book.wiki_dir / "projects" / f"{_slug(proj)}.md"
+        if page.with_name(f"{_slug(proj)}-migrated.md").exists():
+            page = page.with_name(f"{_slug(proj)}-migrated.md")
+        take_labels(b.md, "wiki:" + page.relative_to(book.wiki_dir).with_suffix("").as_posix())
+    if bg and not new_only:
         end = top[0].start if top else len(text)
         b = convert(text[bg.end():end], source.parent)
         page = book.wiki_dir / "projects" / f"{_slug(proj)}.md"
@@ -473,6 +506,8 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
         else:
             date = s[0] if s else None
             items = [(c, s[1:], named(args, "authors") or "", c.bodies[0] if c.bodies else "")]
+        if c.name == "day" and len(s) > 1 and s[1].strip().lower() == FROZEN_DAY.lower():
+            continue   # the note that freezes a migrated log book is not an entry
         for n, ns, auth, body_text in items:
             if c.name == "day":
                 sub, title = (ns[0], ns[1]) if len(ns) >= 2 else (None, ns[0] if ns else "")
@@ -538,6 +573,10 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
                 hhmm = f"{seq[date]:04d}"
             eid = f"{date}-{hhmm}-{re.sub(r'[^a-z0-9]', '', handles[0].lower())}-{_slug(title)}"
             path = folder / f"{eid}.md"
+            if new_only and path.exists():   # migrated before: keep it; compared at the end, once labels are known
+                report.existing += 1
+                compare.append((path, take_labels(md, path.stem)))
+                continue
             k = 1
             while path.exists():
                 path = folder / f"{eid}-{k}.md"
@@ -553,6 +592,11 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
             report.unresolved_refs.append(labels[i])
             return f"figure `{labels[i]}` (in the original log book)"
         return "the figure on this page" if where[i] == here else f"the figure on [[{where[i]}]]"
+
+    for path, md in compare:   # new_only: did the source change an entry migrated before?
+        now = re.sub(r"LBREF(\d+)LBREF", lambda m: link(int(m.group(1)), path.stem), md)
+        if _body(path.read_text(encoding="utf-8")) != now.strip():
+            report.changed.append(book.rel(path))
 
     for f in written:   # references, now that every label's place is known
         s = f.read_text(encoding="utf-8")

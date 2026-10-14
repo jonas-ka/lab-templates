@@ -237,7 +237,7 @@ Every command runs from any folder inside the log book or a repository connected
 | `month` | The PDF of the entries logged in one month (`--month YYYY-MM`, default last month): `Logbook-YYYY-MM.pdf`. |
 | `digest` | The weekly summary as Markdown: new entries by project, open items with their age, calibrations about to expire. |
 | `pull` | In a connected repository: writes the repository's copy of its projects (see below). |
-| `migrate <log.typ>` | Converts a Typst log book (`#day`, `#note`, `#entry`) into entries in `--into <book>`: callouts become blocks, figures are copied as version 1 (with SVG and PNG made from PDFs), the background section becomes a wiki page, the date of each entry's first commit becomes `logged`. Nothing is committed; a report lists what needs a look. Needs `--extra migrate`. |
+| `migrate <log.typ>` | Converts a Typst log book (`#day`, `#note`, `#entry`) into entries in `--into <book>`: callouts become blocks, figures are copied as version 1 (with SVG and PNG made from PDFs), the background section becomes a wiki page, the date of each entry's first commit becomes `logged`. Nothing is committed; a report lists what needs a look. Needs `--extra migrate`. `--new-only` after an earlier migration of the same log book: only the entries the book does not have yet, and a list of those whose text changed since. The source's name in `migrated_from` comes from its `origin` remote. A final `#day` titled "This log book has moved" (the freeze) is never migrated. |
 | `epics snapshot <group>` / `epics restore <entry>` | Reads a PV group from `apparatus.yaml` into a snapshot file; shows the differences between a stored snapshot and the machine, and writes the stored values only after you confirm. Needs `--extra epics` and the lab's EPICS network. |
 | `init-github` | Writes the "New entry" issue form and the workflows into `.github/` (below). |
 | `check`, `build`, `open-items`, `schema` | As above. |
@@ -276,7 +276,7 @@ from them).
 
 | File | When | What |
 |---|---|---|
-| `ISSUE_TEMPLATE/new-entry.yml` | | The "New entry" form: title, kind, project, co-authors, apparatus, date, text, files dragged in, corrects/resolves, the export-control confirmation. |
+| `ISSUE_TEMPLATE/new-entry.yml` | | The "New entry" form: the issue's title is the entry's title; then project, kind, the text, files and the export-control confirmation; subproject, apparatus, co-authors, tags, date, corrects and resolves under "Optional". The view's links fill fields in: "New entry here" on a project or apparatus page, "Correct" on an entry, "Resolve" on an open item. |
 | `workflows/logbook-entry-from-issue.yml` | a form is submitted | Turns the form into an entry committed as its author, runs the checker, opens a pull request that merges itself, and reports back on the issue. A pull request opened by a workflow starts no other workflow, so this one runs the checker itself and posts the required check `entry-checks`. |
 | `workflows/logbook-checks.yml` | every pull request, every push to main | The check `entry-checks` that the ruleset requires. |
 | `workflows/logbook-site.yml` | every push to main | Builds the HTML view and the PDF and publishes them with GitHub Pages. |

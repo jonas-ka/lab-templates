@@ -23,9 +23,11 @@ NO_RESPONSE = "_No response_"
 FORM_LABELS = {  # issue-form label -> field
     "Title": "title", "Kind": "kind", "Project": "project", "Subproject": "subproject", "Co-authors": "coauthors",
     "Apparatus": "apparatus", "Tags": "tags", "Date of the work": "date", "Corrects": "corrects",
-    "Resolves": "resolves", "Entry": "body", "Figures, data and attachments": "files",
+    "Resolves": "resolves", "Entry": "body", "Figures and files": "files", "Figures, data and attachments": "files",
     "Export control": "export_control",
 }
+# labels of earlier versions of the form, still read from issues filed with them
+LEGACY_LABELS = {"Title", "Figures, data and attachments"}
 
 
 class IssueError(RuntimeError):
@@ -38,37 +40,35 @@ def issue_form(book: Book) -> dict:
     apparatus = [f"{v.get('name', k)} ({k})" for k, v in (book.apparatus or {}).items()]
     body = [
         {"type": "markdown", "attributes": {"value": (
-            "Write one piece of work: what you did, what you found (with the numbers), what you decided and why, "
-            "what is still open. It becomes a pull request that merges itself when the checks pass; you are the first author. "
-            "Never: grades or other student records, health information, passwords, export-controlled documents "
-            "(link them where they live instead).")}},
-        {"type": "input", "id": "title", "attributes": {"label": "Title"}, "validations": {"required": True}},
-        {"type": "dropdown", "id": "kind", "attributes": {"label": "Kind", "options": list(book.kinds), "default": 0}},
+            "The title box above is the entry's title. One piece of work per entry: what you did, what you found "
+            "(with the numbers), what you decided, what is open. Never grades, student records, health information "
+            "or manuals: link those where they live.")}},
         {"type": "dropdown", "id": "project", "attributes": {"label": "Project", "options": projects}, "validations": {"required": True}},
-        {"type": "input", "id": "subproject", "attributes": {"label": "Subproject", "description": "Optional."}},
-    ]
-    if people:
-        body.append({"type": "dropdown", "id": "coauthors", "attributes": {
-            "label": "Co-authors", "description": "Others who took part (you are the first author).", "multiple": True, "options": people}})
-    if apparatus:
-        body.append({"type": "dropdown", "id": "apparatus", "attributes": {"label": "Apparatus", "multiple": True, "options": apparatus}})
-    body += [
-        {"type": "input", "id": "tags", "attributes": {"label": "Tags", "description": "Comma separated."}},
-        {"type": "input", "id": "date", "attributes": {"label": "Date of the work", "description": "YYYY-MM-DD; empty for today."}},
-        {"type": "input", "id": "corrects", "attributes": {"label": "Corrects", "description": "The id of an entry this one corrects (a correction)."}},
-        {"type": "input", "id": "resolves", "attributes": {"label": "Resolves", "description": "Open items this entry settles: <entry-id>#<block-id>, comma separated."}},
+        {"type": "dropdown", "id": "kind", "attributes": {"label": "Kind", "options": list(book.kinds), "default": 0}},
         {"type": "textarea", "id": "body", "attributes": {"label": "Entry", "description": (
-            "Markdown. Callouts: a line `::: finding`, the text, a line `:::` (also decision, issue, todo, context, incident; "
-            "`::: todo {#todo-1}` gives an open item an id). Link entries as [[entry-id]], cite as [@Key].")},
+            "Markdown. Blocks: a line `::: finding`, the text, a line `:::` (also decision, issue, todo); "
+            "`::: todo {#todo-1}` makes an open item. Link entries as [[entry-id]].")},
          "validations": {"required": True}},
-        {"type": "textarea", "id": "files", "attributes": {"label": "Figures, data and attachments", "description": (
-            "Drag files here, one paragraph each. Under a figure write `Caption: …` and `Alt: …` (what the figure shows, "
-            "for readers who cannot see it); a plot needs its PDF and its SVG (drag both). Under a data file write "
-            "`Source: …` (where the raw data lives).")}},
+        {"type": "textarea", "id": "files", "attributes": {"label": "Figures and files", "description": (
+            "Drag files here, one paragraph each, with `Caption: …` and `Alt: …` under a figure "
+            "(a plot: its PDF and SVG) and `Source: …` under a data file.")}},
         {"type": "checkboxes", "id": "export_control", "attributes": {"label": "Export control", "options": [
             {"label": "No file I attached holds export-controlled technical data (manuals, vendor documents, controlled drawings)."}]}},
+        {"type": "markdown", "attributes": {"value": "#### Optional"}},
+        {"type": "input", "id": "subproject", "attributes": {"label": "Subproject"}},
     ]
-    return {"name": "New log-book entry", "description": "Write an entry for the log book.", "title": "Entry: ",
+    if apparatus:
+        body.append({"type": "dropdown", "id": "apparatus", "attributes": {"label": "Apparatus", "multiple": True, "options": apparatus}})
+    if people:
+        body.append({"type": "dropdown", "id": "coauthors", "attributes": {
+            "label": "Co-authors", "description": "Others who took part; you are the first author.", "multiple": True, "options": people}})
+    body += [
+        {"type": "input", "id": "tags", "attributes": {"label": "Tags", "description": "Comma separated."}},
+        {"type": "input", "id": "date", "attributes": {"label": "Date of the work", "description": "YYYY-MM-DD, if not today."}},
+        {"type": "input", "id": "corrects", "attributes": {"label": "Corrects", "description": "The id of the entry this one corrects."}},
+        {"type": "input", "id": "resolves", "attributes": {"label": "Resolves", "description": "Open items this entry settles: <entry-id>#<item-id>, comma separated."}},
+    ]
+    return {"name": "New log-book entry", "description": "Write an entry for the log book.",
             "labels": ["new-entry"], "body": body}
 
 
@@ -212,6 +212,8 @@ def from_issue(book: Book, number: int, submitter: str, repo: str, out) -> int:
         print(f"issue #{number} is already done", file=out)
         return 0
     answers = parse_issue_body(issue.get("body", ""))
+    if not answers.get("title"):   # the form uses the issue's own title (since v2026.10.25)
+        answers["title"] = re.sub(r"^\s*(new\s+)?entry:\s*", "", issue.get("title", ""), flags=re.I).strip()
     person = book.person_by_login(submitter)
 
     def tell(text: str) -> None:

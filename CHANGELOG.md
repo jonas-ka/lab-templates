@@ -2,6 +2,23 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.25 (2026-10-14)
+
+- **"New entry" form, shorter:** the issue's own title is the entry's title (the separate Title
+  field is gone, as is the "Entry: " prefix); project, kind and the text come first, then files
+  and the export-control confirmation; subproject, apparatus, co-authors, tags, date, corrects
+  and resolves sit under "Optional"; shorter help texts. Issues filed with the earlier form are
+  still read. **Run `logbook init-github`** in a book to get it.
+- **Prefilled links in the view:** "New entry here" on a project page (the project) and on an
+  apparatus page (the apparatus), "Resolve" on every open item (the item, project, subproject
+  and a title), "Correct" now also sets the kind and subproject. GitHub fills the form's fields
+  from the link.
+- **`logbook migrate --new-only`:** a carry-over after an earlier migration of the same log book:
+  only the entries the book does not have yet; existing ones are left alone and listed when their
+  text changed since. The source's name in `migrated_from` comes from its `origin` remote, so a
+  clone in another folder no longer writes that folder's name. The freeze note ("This log book
+  has moved") is never migrated.
+
 ## v2026.10.24 (2026-10-13)
 
 Found with the first migration pull requests on GitHub:

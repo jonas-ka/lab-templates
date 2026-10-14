@@ -10,6 +10,11 @@
   const main = $("#main"), side = $("#side"), app = $(".app");
 
   // ------------------------------------------------------------------ helpers -------------
+  // The "New entry" form with fields filled in (GitHub reads them from the link by field id).
+  const newEntry = (fields) => D.site ? D.site.new_entry + Object.entries(fields).filter(([, v]) => v)
+    .map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join("") : null;
+  const resolveLink = (e, anchor, text) => D.site ? ` <a class="link" href="${newEntry({ title: "Resolved: " + (text || e.title).slice(0, 70),
+    resolves: e.id + "#" + anchor, project: e.project, subproject: e.subproject })}" title="Write an entry that resolves this item">Resolve</a>` : "";
   const nEntries = (n) => `${n} ${n === 1 ? "entry" : "entries"}`;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[−–]/g, "-").toLowerCase();
@@ -253,7 +258,7 @@
       if (!el || el.querySelector(".state")) continue;
       const s = document.createElement("span");
       s.className = "state status " + (by.length ? "done" : "open");
-      s.innerHTML = by.length ? "Resolved in " + by.map((x) => entryLink(x)).join(", ") : "Open";
+      s.innerHTML = by.length ? "Resolved in " + by.map((x) => entryLink(x)).join(", ") : "Open" + resolveLink(e, a, el.textContent.trim());
       el.appendChild(s);
     }
   }
@@ -347,7 +352,7 @@
     main.innerHTML = pageHead("Open items", `Issues and todos that no later entry has resolved yet. A new entry resolves one by listing it under <code class="c">resolves:</code>.`) +
       toolbar(items.length, openItems(E).length) +
       (items.length ? table(["Item", "Entry", "Project", "Open since", "By"], items.map((x) => ({ cells: [
-        { html: `<span class="status open" title="${esc(x.name)}"></span> ${highlight(x.text, Q.terms)}`, cls: "item" },
+        { html: `<span class="status open" title="${esc(x.name)}"></span> ${highlight(x.text, Q.terms)}${resolveLink(x.e, x.anchor, x.text)}`, cls: "item" },
         { html: entryLink(x.e.id, x.anchor, x.e.title), cls: "entry" },
         { html: projTag(x.e.project, x.e.subproject) },
         { html: `${esc(fmtDate(x.e.date))} <span class="tag gray">${daysSince(x.e.date)} d</span>`, cls: "nowrap" },
@@ -380,7 +385,7 @@
     let acts = "";
     if (S) {
       acts += `<a class="btn ghost sm" href="${e.pr ? `${S.repo}/pull/${e.pr}` : `${S.repo}/pulls?q=${enc(e.id)}`}" title="The pull request that added this entry">${icon("chat")}Discuss</a>`;
-      acts += `<a class="btn ghost sm" href="${S.new_entry}&title=${enc("Correction: " + e.title)}&corrects=${enc(e.id)}&project=${enc(e.project)}" title="Write a correction entry">${icon("pen")}Correct</a>`;
+      acts += `<a class="btn ghost sm" href="${newEntry({ title: "Correction: " + e.title, kind: "correction", corrects: e.id, project: e.project, subproject: e.subproject })}" title="Write a correction entry">${icon("pen")}Correct</a>`;
       acts += `<a class="btn ghost sm" href="${S.repo}/blob/${S.branch}/${e.path.split("/").map(enc).join("/")}" title="The Markdown file">${icon("git")}Source</a>`;
     }
     acts += `<button class="btn ghost sm" data-act="cite-id" data-id="${esc(e.id)}" title="Copy [[id]] to link this entry from another one">${icon("link")}<span>Copy link</span></button>`;
@@ -462,7 +467,7 @@
     const open = openItems(list);
     crumbs([{ t: "Projects", href: "#/projects" }, { t: n }]);
     main.innerHTML = `<header class="entry-head"><h1 class="title">${esc(n)}</h1><div class="meta"><span>${nEntries(list.length)}</span>` +
-      `<a class="link" href="#/?project=${enc(n)}">filter the list</a>${p.subprojects.map((s) => tag(s, hue(s), `#/?project=${enc(n)}&sub=${enc(n + "/" + s)}`)).join("")}` +
+      `<a class="link" href="#/?project=${enc(n)}">filter the list</a>${D.site ? `<a class="link" href="${newEntry({ project: n })}">New entry here</a>` : ""}${p.subprojects.map((s) => tag(s, hue(s), `#/?project=${enc(n)}&sub=${enc(n + "/" + s)}`)).join("")}` +
       `<span class="status open">${open.length} open</span></div></header>` +
       (p.wiki ? wikiHtml(p.wiki) : `<p class="desc">No project page in the wiki yet.</p>`) +
       toggle("Open items", openList(open), open.length) + toggle("Latest entries", cards(list, [], 12), list.length);
@@ -480,7 +485,7 @@
     const incidents = list.filter((e) => e.kind === "incident"), snaps = list.filter((e) => e.epics.length);
     crumbs([{ t: "Apparatus", href: "#/apparatus" }, { t: a.name }]);
     const li = (xs) => (xs.length ? linkList(xs.map((e) => e.id)) : `<p class="desc">None.</p>`);
-    main.innerHTML = `<header class="entry-head"><h1 class="title">${esc(a.name)}</h1><div class="meta"><span>${nEntries(list.length)}</span><a class="link" href="#/?app=${enc(id)}">filter the list</a></div></header>` +
+    main.innerHTML = `<header class="entry-head"><h1 class="title">${esc(a.name)}</h1><div class="meta"><span>${nEntries(list.length)}</span><a class="link" href="#/?app=${enc(id)}">filter the list</a>${D.site ? `<a class="link" href="${newEntry({ apparatus: `${a.name} (${id})` })}">New entry here</a>` : ""}</div></header>` +
       (a.wiki ? wikiHtml(a.wiki) : "") +
       toggle("Current calibrations and maintenance", li(current), current.length) + toggle("Incidents", li(incidents), incidents.length) +
       toggle("EPICS snapshots", li(snaps), snaps.length) + toggle("All entries", cards(list, [], 12), list.length, false);

@@ -384,7 +384,9 @@ def test_issue_form_and_parsing(tmp_path):
     book = open_book(EXAMPLE)
     form = github.issue_form(book)
     labels = {b["attributes"]["label"] for b in form["body"] if "label" in b.get("attributes", {})}
-    assert set(github.FORM_LABELS) <= labels                                  # every field the parser reads exists
+    assert set(github.FORM_LABELS) - github.LEGACY_LABELS <= labels          # every field the parser reads exists
+    ids = [b.get("id") for b in form["body"] if b.get("id")]
+    assert "title" not in ids and ids[:3] == ["project", "kind", "body"]      # the issue's own title; the text early
     people = next(b for b in form["body"] if b.get("id") == "coauthors")["attributes"]["options"]
     assert "A. Author (aa)" in people
     answers = github.parse_issue_body(ISSUE)
@@ -514,3 +516,63 @@ def test_book_time_zone_dates_new_entries(book_dir, tmp_path):
     path, header, _ = newentry.build(book, {"title": "Zone", "project": "Example experiment", "kind": "note"},
                                      "Text.\n", tmp_path, newentry.Options(handle="aa"))
     assert header["date"] == dt.datetime.now(ZoneInfo("Pacific/Kiritimati")).date().isoformat()
+
+
+def test_from_issue_takes_the_title_from_the_issue(book_dir, monkeypatch):
+    body = ISSUE.split("### Kind", 1)[1]                    # a form without the old Title field
+    calls = []
+    def fake_gh(*args, check=True):
+        calls.append(args)
+        if args[:2] == ("issue", "view"):
+            return json.dumps({"body": "### Kind" + body, "title": "Entry: Drift traced to the cage supply", "state": "OPEN"})
+        if args[:2] == ("pr", "list"):
+            return "0"
+        raise RuntimeError("stop after drafting")          # nothing past the draft is needed here
+    monkeypatch.setattr(github, "_gh", fake_gh)
+    seen = {}
+    real = github.draft_from_issue
+    def spy(book, answers, *a, **k):
+        seen.update(answers)
+        raise RuntimeError("stop")
+    monkeypatch.setattr(github, "draft_from_issue", spy)
+    monkeypatch.setattr(github.connect if hasattr(github, "connect") else __import__("lablogbook.connect", fromlist=["x"]), "run", lambda *a, **k: "")
+    try:
+        github.from_issue(open_book(book_dir), 3, "a-author-example", "o/r", io.StringIO())
+    except Exception:
+        pass
+    assert seen.get("title") == "Drift traced to the cage supply"
+
+
+def test_migrate_new_only_and_repo_name_from_remote(tmp_path):
+    src = init_repo(tmp_path / "checkout-folder")
+    (src / "notes").mkdir()
+    shutil.copy(FIG.with_suffix(".svg"), src / "notes" / "fig-test.svg")
+    shutil.copy(FIG.with_suffix(".png"), src / "notes" / "fig-bg.png")
+    (src / "notes" / "test-logbook.typ").write_text(TYPST)
+    git(src, "remote", "add", "origin", "https://github.com/example/real-name.git")
+    git(src, "add", "-A")
+    git(src, "commit", "-q", "-m", "the log book")
+    book = open_book(init_repo(tmp_path / "book", EXAMPLE))
+    first = migrate.migrate(src / "notes" / "test-logbook.typ", book, project="Example experiment")
+    assert len(first.entries) == 4
+    assert all("migrated_from: real-name@" in p.read_text() for p in first.entries)   # not the folder's name
+    again = migrate.migrate(src / "notes" / "test-logbook.typ", open_book(book.root), project="Example experiment", new_only=True)
+    assert again.entries == [] and again.existing == 4 and not again.changed
+    (src / "notes" / "test-logbook.typ").write_text(TYPST.rstrip() + '\n\n#day("2026-10-03", "Later", authors: [A. Author])[\n#note("Ion source", "A later note")[Later text.]\n]\n')
+    git(src, "commit", "-q", "-am", "a later note")
+    later = migrate.migrate(src / "notes" / "test-logbook.typ", open_book(book.root), project="Example experiment", new_only=True)
+    assert len(later.entries) == 1 and "a-later-note" in later.entries[0].stem and later.existing == 4
+    assert not list((book.root / "entries" / "2026").glob("*-1.md"))                 # no duplicates
+
+
+def test_migrate_skips_the_frozen_note(tmp_path):
+    src = init_repo(tmp_path / "src")
+    (src / "notes").mkdir()
+    (src / "notes" / "log.typ").write_text('#import "labnotes-template.typ": *\n'
+        '#day("2026-10-01", "A day", authors: [A. Author])[\n#note("Ion source", "Real work")[Text.]\n]\n'
+        '#day("2026-10-14", "This log book has moved", authors: [A. Author])[\n#note("Log book", "Frozen")[Moved.]\n]\n')
+    git(src, "add", "-A")
+    git(src, "commit", "-q", "-m", "log")
+    book = open_book(init_repo(tmp_path / "book", EXAMPLE))
+    r = migrate.migrate(src / "notes" / "log.typ", book, project="Example experiment")
+    assert [p.stem.split("-aa-")[1] for p in r.entries] == ["real-work"]
