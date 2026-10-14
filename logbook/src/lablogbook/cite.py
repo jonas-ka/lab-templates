@@ -55,7 +55,8 @@ def from_crossref(msg: dict) -> tuple[str, dict]:
     authors = [f"{a.get('family', '')}, {a.get('given', '')}".strip(", ") for a in msg.get("author", []) if a.get("family")]
     year = ((msg.get("issued") or {}).get("date-parts") or [[None]])[0][0]
     journal = _clean((msg.get("container-title") or [""])[0])
-    short = _clean((msg.get("short-container-title") or [""])[0]) or journals().get(journal, "")
+    # The lab's list wins: Crossref's "short" title is sometimes the full one.
+    short = journals().get(journal) or _clean((msg.get("short-container-title") or [""])[0])
     f = {"author": " and ".join(authors), "title": "{" + _tex(_clean((msg.get("title") or [""])[0])) + "}",
          "journal": _tex(journal) if typ == "article" else "", "shortjournal": _tex(short) if typ == "article" else "",
          "booktitle": _tex(journal) if typ in ("incollection", "inproceedings") else "",

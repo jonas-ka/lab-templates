@@ -116,3 +116,17 @@ def test_logo_proportions_decide_the_banner(tmp_path):
     assert html._image_size(tmp_path / "square.png") == (64, 64)
     assert html._image_size(tmp_path / "wide.svg") == (1510.13, 350)
     assert html._image_size(tmp_path / "missing.png") == (0, 0)
+
+
+@needs_pandoc
+@needs_typst
+def test_math_gets_alt_text_under_pdf_ua(tmp_path):
+    book = tmp_path / "book"
+    shutil.copytree(EXAMPLE, book)
+    (book / "entries" / "2026" / "2026-10-07-0900-aa-flight-time.md").write_text(
+        "---\ndate: 2026-10-07\ntime: \"09:00\"\nauthors: [aa]\nkind: note\nproject: Example experiment\n"
+        "title: Flight time\n---\n\nAn ion of mass $m$ needs\n\n$$t = L \\sqrt{\\frac{m}{2qU}}$$\n")
+    out = book / "build" / "out.pdf"
+    pdf.build(open_book(book), out)            # PDF/UA-1 fails on an equation without alt text
+    src = out.with_suffix(".typ").read_text()
+    assert 'alt: "m"' in src and "math.equation(block: true" in src

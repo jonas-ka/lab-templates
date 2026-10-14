@@ -37,6 +37,15 @@ _StringDates.yaml_implicit_resolvers = {
 }
 
 
+
+def slugify(text: str, limit: int = 48) -> str:
+    """Lower case, hyphens, at most `limit` characters, cut after a whole word where possible."""
+    s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    if len(s) > limit:
+        cut = s[:limit + 1].rfind("-")
+        s = s[:cut] if cut >= limit // 3 else s[:limit]
+    return s.rstrip("-") or "entry"
+
 def load_yaml(text: str):
     return yaml.load(text, Loader=_StringDates)
 
@@ -164,5 +173,5 @@ def parse(path: str | Path, text: str | None = None) -> Entry:
 
 def new_id(date: str, hhmm: str, handle: str, title: str) -> str:
     """The id for a new entry; the slug is made from the title."""
-    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:48].rstrip("-") or "entry"
+    slug = slugify(title)
     return f"{date}-{hhmm}-{handle}-{slug}"

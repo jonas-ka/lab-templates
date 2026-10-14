@@ -4,4 +4,4 @@ Part of lab-templates (MIT). Works standalone on `entries/` in any repository; a
 adds registries (people, projects, apparatus) and a configuration file, `logbook.yaml`.
 """
 
-__version__ = "2026.10.19"
+__version__ = "2026.10.20"

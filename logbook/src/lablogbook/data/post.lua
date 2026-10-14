@@ -146,6 +146,16 @@ do
   end
 end
 
+-- PDF/UA-1 needs alt text on every equation: pandoc's Typst math, wrapped in an equation whose
+-- alt text is the TeX source.
+local function Math(el)
+  if not typst then return nil end
+  local out = pandoc.write(pandoc.Pandoc({pandoc.Plain({el})}), "typst"):gsub("%s+$", "")
+  return pandoc.RawInline("typst", "#{ let e = " .. out .. "; math.equation(block: " ..
+    tostring(el.mathtype == "DisplayMath") .. ", alt: " .. tstr(el.text) .. ", e.body) }")
+end
+
 return {
+  {Math = Math},
   {Div = Div, Link = Link, Cite = Cite, traverse = "topdown"},
 }

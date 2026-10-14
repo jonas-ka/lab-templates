@@ -79,11 +79,33 @@ def _str(d, s):
 
 _Dumper.add_representer(str, _str)
 
+FLOW_MAX = 90   # a mapping or list of plain values this short stays on one line
+
+
+def _short(data) -> bool:
+    values = data.values() if isinstance(data, dict) else data
+    if any(isinstance(v, (dict, list)) for v in values):
+        return False
+    one_line = yaml.dump(data, Dumper=yaml.SafeDumper, default_flow_style=True, width=10_000, allow_unicode=True)
+    return len(one_line.strip()) <= FLOW_MAX
+
+
+def _map(d, data):
+    return d.represent_mapping("tag:yaml.org,2002:map", data.items(), flow_style=_short(data))
+
+
+def _seq(d, data):
+    return d.represent_sequence("tag:yaml.org,2002:seq", data, flow_style=_short(data))
+
+
+_Dumper.add_representer(dict, _map)
+_Dumper.add_representer(list, _seq)
+
 
 def dump_entry(header: dict, body: str) -> str:
     h = {k: header[k] for k in ORDER if k in header and header[k] not in (None, [], {}, "")}
     h.update({k: v for k, v in header.items() if k not in h and v not in (None, [], {}, "")})
-    y = yaml.dump(h, Dumper=_Dumper, sort_keys=False, allow_unicode=True, width=10_000, default_flow_style=None)
+    y = yaml.dump(h, Dumper=_Dumper, sort_keys=False, allow_unicode=True, width=10_000)
     return f"---\n{y}---\n\n{body.strip()}\n"
 
 

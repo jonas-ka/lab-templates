@@ -461,3 +461,23 @@ def test_epics_snapshot_and_restore(ioc, book_dir, tmp_path):
     assert epicsio.restore(stored, lambda q: True, out) == 1
     assert ioc.read("SRC:Extract", timeout=2).data[0] == -120.0
     assert epicsio.restore(stored, lambda q: True, io.StringIO()) == 0     # now nothing differs
+
+
+def test_slug_ends_after_a_whole_word():
+    from lablogbook.entry import slugify
+    assert slugify("Demonstration: ion flight times at 3 kV, with a figure, data, a table") == "demonstration-ion-flight-times-at-3-kv-with-a"
+    assert len(slugify("x" * 80)) == 48
+    assert slugify("Short title") == "short-title"
+
+
+def test_header_short_items_inline_long_ones_as_blocks():
+    out = newentry.dump_entry({"title": "T", "tags": ["a", "b"], "parameters": [{"name": "U", "value": 3000, "unit": "V"}],
+                               "figures": [{"file": "figures/a-v1.pdf", "caption": "c" * 100}]}, "Body")
+    assert "tags: [a, b]" in out and "- {name: U, value: 3000, unit: V}" in out
+    assert "- file: figures/a-v1.pdf\n  caption: " in out
+
+
+def test_cite_lab_journal_list_wins_over_crossref_short_title():
+    msg = {**CROSSREF["message"], "container-title": ["International Journal of Mass Spectrometry"],
+           "short-container-title": ["International Journal of Mass Spectrometry"]}
+    assert cite.from_crossref(msg)[1]["shortjournal"] == "Int. J. Mass Spectrom."

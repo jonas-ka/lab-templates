@@ -2,6 +2,17 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.20 (2026-10-13)
+
+- `logbook build`: formulas in entries and wiki pages get their TeX source as alt text in the
+  PDF. Before, any `$…$` made the PDF/UA-1 build fail ("missing alt text").
+- `logbook new`: a short header item stays on one line (`tags: [a, b]`, a parameter), a longer
+  one (a figure with its caption and alt text) is written as an indented block, so headers read
+  well on GitHub. Entry ids end after a whole word (`…-at-3-kv`, not `…-with-a-fi`); the same for
+  `logbook migrate`.
+- `logbook cite add`: the lab's journal list (`data/journals.yaml`) wins over Crossref's short
+  title, which is sometimes the full one (International Journal of Mass Spectrometry).
+
 ## v2026.10.19 (2026-10-13)
 
 - HTML view: an image logo sits on a small light card, so a logo with dark lines on a

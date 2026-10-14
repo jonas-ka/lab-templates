@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .book import Book
+from .entry import slugify
 from .newentry import dump_entry
 
 CALLOUTS = {"decision": "decision", "finding": "finding", "issue": "issue", "todo": "todo", "context-box": "context"}
@@ -359,7 +360,7 @@ class Report:
 
 
 def _slug(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:48].rstrip("-") or "entry"
+    return slugify(s)
 
 
 def _figure_files(src: Path, dest_dir: Path, report: Report) -> str:
