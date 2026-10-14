@@ -2,6 +2,17 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.19 (2026-10-13)
+
+- HTML view: an image logo sits on a small light card, so a logo with dark lines on a
+  transparent background stays visible in the dark theme. A wide logo (a word mark, wider than
+  1.6 times its height) is shown as a banner across the top of the sidebar; before, it was
+  squeezed into a 30-pixel square.
+- HTML view: "1 entry", not "1 entries".
+- Wiki pages may start with a YAML header `reviewed: [ferpa, health]`, the checker's override
+  after reading, as in entries (`docs/LOGBOOK_FORMAT.md`, "The wiki and the references"). The
+  header is not shown in the PDF, the view or a project's copy.
+
 ## v2026.10.18 (2026-10-13)
 
 - **The log book's tools** (`docs/LOGBOOK_FORMAT.md`, "The tools"; `logbook <command> --help`):

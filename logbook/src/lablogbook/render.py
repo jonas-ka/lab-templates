@@ -166,13 +166,35 @@ def logged_times(book: Book) -> dict[str, Logged]:
     return res
 
 
+_WIKI_HEAD = re.compile(r"\A---[ \t]*\n(.*?)\n---[ \t]*\n", re.S)
+
+
+def wiki_split(text: str) -> tuple[dict, str, int]:
+    """A wiki page's optional YAML header, its Markdown and the header's number of lines.
+
+    Wiki pages need no header; one is read for `reviewed: [ferpa, health]` only (the checker's
+    override after reading, as in entries)."""
+    m = _WIKI_HEAD.match(text)
+    if not m:
+        return {}, text, 0
+    try:
+        meta = load_yaml(m.group(1)) or {}
+    except Exception:   # noqa: BLE001 - a broken header is ignored like an absent one
+        meta = {}
+    return (meta if isinstance(meta, dict) else {}), text[m.end():], m.group(0).count("\n")
+
+
+def wiki_text(path: Path) -> str:
+    return wiki_split(path.read_text(encoding="utf-8"))[1]
+
+
 def wiki_pages(book: Book) -> tuple[dict[str, Path], dict[str, str]]:
     pages, titles = {}, {}
     if book.wiki_dir.exists():
         for f in sorted(book.wiki_dir.rglob("*.md")):
             page = f.relative_to(book.wiki_dir).with_suffix("").as_posix()
             pages[page] = f
-            m = re.search(r"^#\s+(.+)$", f.read_text(encoding="utf-8"), re.M)
+            m = re.search(r"^#\s+(.+)$", wiki_text(f), re.M)
             titles[page] = m.group(1).strip() if m else page
     return pages, titles
 
@@ -270,7 +292,7 @@ def document(p: Prepared, wiki: list[str]) -> str:
     chunks = []
     for page in wiki:
         f = p.wiki[page]
-        body = prepare_markdown(p, f.read_text(encoding="utf-8"), None, f.parent)
+        body = prepare_markdown(p, wiki_text(f), None, f.parent)
         chunks.append(f'\n:::::: {{.lb-wiki data-id="{page}"}}\n\n{body}\n\n::::::\n')
     for e in p.entries:
         body = prepare_markdown(p, e.body, e.id, e.folder, e.header.get("figures") or [])
@@ -318,7 +340,7 @@ def used_keys(p: Prepared) -> list[str]:
     for e in p.entries:
         keys += [k for k, _ in e.citations()]
     for page in p.wiki:
-        keys += [m for m in re.findall(r"@([A-Z][A-Za-z'-]+\d{4}[a-z]?)", p.wiki[page].read_text(encoding="utf-8"))]
+        keys += [m for m in re.findall(r"@([A-Z][A-Za-z'-]+\d{4}[a-z]?)", wiki_text(p.wiki[page]))]
     return sorted({k for k in keys if k in p.bib})
 
 

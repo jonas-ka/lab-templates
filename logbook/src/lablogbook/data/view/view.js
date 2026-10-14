@@ -10,6 +10,7 @@
   const main = $("#main"), side = $("#side"), app = $(".app");
 
   // ------------------------------------------------------------------ helpers -------------
+  const nEntries = (n) => `${n} ${n === 1 ? "entry" : "entries"}`;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[−–]/g, "-").toLowerCase();
   const enc = encodeURIComponent;
@@ -460,7 +461,7 @@
     const list = E.filter((e) => projectsOf(e).includes(n)).reverse();
     const open = openItems(list);
     crumbs([{ t: "Projects", href: "#/projects" }, { t: n }]);
-    main.innerHTML = `<header class="entry-head"><h1 class="title">${esc(n)}</h1><div class="meta"><span>${list.length} entries</span>` +
+    main.innerHTML = `<header class="entry-head"><h1 class="title">${esc(n)}</h1><div class="meta"><span>${nEntries(list.length)}</span>` +
       `<a class="link" href="#/?project=${enc(n)}">filter the list</a>${p.subprojects.map((s) => tag(s, hue(s), `#/?project=${enc(n)}&sub=${enc(n + "/" + s)}`)).join("")}` +
       `<span class="status open">${open.length} open</span></div></header>` +
       (p.wiki ? wikiHtml(p.wiki) : `<p class="desc">No project page in the wiki yet.</p>`) +
@@ -470,7 +471,7 @@
     crumbs([{ t: "Apparatus" }]);
     const ac = count((e) => e.apparatus || []);
     main.innerHTML = pageHead("Apparatus", "What each part of the setup has been through: calibrations, maintenance, incidents, settings.") +
-      (D.apparatus.length ? `<div class="gallery">` + D.apparatus.map((a) => `<a class="tile" href="#/apparatus/${enc(a.id)}"><b>${esc(a.name)}</b><span>${ac[a.id] || 0} entries</span></a>`).join("") + `</div>` : `<p class="empty">No apparatus registered.</p>`);
+      (D.apparatus.length ? `<div class="gallery">` + D.apparatus.map((a) => `<a class="tile" href="#/apparatus/${enc(a.id)}"><b>${esc(a.name)}</b><span>${nEntries(ac[a.id] || 0)}</span></a>`).join("") + `</div>` : `<p class="empty">No apparatus registered.</p>`);
   }
   function viewApparatus(id) {
     const a = D.apparatus.find((x) => x.id === id) || { id, name: id };
@@ -479,7 +480,7 @@
     const incidents = list.filter((e) => e.kind === "incident"), snaps = list.filter((e) => e.epics.length);
     crumbs([{ t: "Apparatus", href: "#/apparatus" }, { t: a.name }]);
     const li = (xs) => (xs.length ? linkList(xs.map((e) => e.id)) : `<p class="desc">None.</p>`);
-    main.innerHTML = `<header class="entry-head"><h1 class="title">${esc(a.name)}</h1><div class="meta"><span>${list.length} entries</span><a class="link" href="#/?app=${enc(id)}">filter the list</a></div></header>` +
+    main.innerHTML = `<header class="entry-head"><h1 class="title">${esc(a.name)}</h1><div class="meta"><span>${nEntries(list.length)}</span><a class="link" href="#/?app=${enc(id)}">filter the list</a></div></header>` +
       (a.wiki ? wikiHtml(a.wiki) : "") +
       toggle("Current calibrations and maintenance", li(current), current.length) + toggle("Incidents", li(incidents), incidents.length) +
       toggle("EPICS snapshots", li(snaps), snaps.length) + toggle("All entries", cards(list, [], 12), list.length, false);
@@ -488,13 +489,13 @@
     crumbs([{ t: "People" }]);
     const wc = count((e) => e.authors);
     main.innerHTML = pageHead("People") + `<div class="gallery">` + Object.keys(wc).sort((a, b) => name(a).localeCompare(name(b))).map((w) =>
-      `<a class="tile person-tile" href="#/person/${enc(w)}">${avatar(w)}<span class="pt"><b>${esc(name(w))}</b><span>${wc[w]} entries</span></span></a>`).join("") + `</div>`;
+      `<a class="tile person-tile" href="#/person/${enc(w)}">${avatar(w)}<span class="pt"><b>${esc(name(w))}</b><span>${nEntries(wc[w])}</span></span></a>`).join("") + `</div>`;
   }
   function viewPerson(h) {
     const list = E.filter((e) => e.authors.includes(h)).reverse();
     crumbs([{ t: "People", href: "#/people" }, { t: name(h) }]);
     main.innerHTML = `<header class="entry-head person-head">${avatar(h, true)}<div><h1 class="title">${esc(name(h))}</h1>` +
-      `<div class="meta"><span>${list.length} entries</span><a class="link" href="#/?who=${enc(h)}">filter the list</a></div></div></header>` + cards(list, [], limit);
+      `<div class="meta"><span>${nEntries(list.length)}</span><a class="link" href="#/?who=${enc(h)}">filter the list</a></div></div></header>` + cards(list, [], limit);
   }
   function viewWikiList() {
     crumbs([{ t: "Wiki" }]);
@@ -550,8 +551,8 @@
       `<span class="emo" aria-hidden="true">${emo}</span><span class="lbl">${esc(label)}</span>${n != null ? `<span class="n">${n}</span>` : ""}</a>`;
     const S = D.site, pc = count(projectsOf);
     const logo = D.logo ? `<img class="logo-img" src="${D.logo}" alt="">` : `<span class="logo" aria-hidden="true">${esc((D.title.match(/\p{L}/u) || ["L"])[0].toUpperCase())}</span>`;
-    let h = `<div class="ws">${logo}` +
-      `<div class="ws-t"><b>${esc(D.title)}</b><span>${E.length} entries</span></div>` +
+    let h = `<div class="ws${D.logo && D.logo_wide ? " wide" : ""}">${logo}` +
+      `<div class="ws-t"><b>${esc(D.title)}</b><span>${nEntries(E.length)}</span></div>` +
       `<button class="iconbtn glyph" data-act="collapse" title="Hide the sidebar" aria-label="Hide the sidebar">«</button></div>` +
       `<button class="nav" data-act="search"><span class="emo" aria-hidden="true">🔍</span><span class="lbl">Search</span><kbd>/</kbd></button>` +
       (S ? `<a class="nav" href="${S.new_entry}"><span class="emo" aria-hidden="true">➕</span><span class="lbl">New entry</span></a>` : "") +

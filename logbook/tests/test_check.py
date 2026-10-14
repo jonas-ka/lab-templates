@@ -337,3 +337,21 @@ def test_csl_style_gives_the_same_text(tmp_path):
     assert "Author A.++ Phys. Rev. Lett. 123, 456 (2019)" in out
     assert "Solo H. Nat. Phys. 17, 101 (2021)" in out
     assert "Writer A.++ Ion Traps in Practice (Example Press, 2001)" in out
+
+
+def test_wiki_page_reviewed_header(tmp_path):
+    from lablogbook import check, render
+    from lablogbook.book import open_book
+    root = tmp_path / "b"
+    (root / "wiki" / "safety").mkdir(parents=True)
+    page = root / "wiki" / "safety" / "laser.md"
+    page.write_text("# Laser safety\n\nEye injuries from a stray beam are the main risk.\n")
+    r = check.run(open_book(root), check.Options())
+    assert r.exit_code == 1 and any(f.code == "health-words" for f in r.findings)
+    page.write_text("---\nreviewed: [health]\n---\n# Laser safety\n\nEye injuries from a stray beam are the main risk.\n")
+    r = check.run(open_book(root), check.Options())
+    assert r.exit_code == 0
+    hit = [f for f in r.findings if f.code == "health-words"]
+    assert hit and hit[0].level == "warn" and hit[0].line == 6
+    meta, body, n = render.wiki_split(page.read_text())
+    assert meta == {"reviewed": ["health"]} and body.startswith("# Laser safety") and n == 3

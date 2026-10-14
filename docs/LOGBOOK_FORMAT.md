@@ -119,7 +119,16 @@ Every link is written once, in the newer entry, and the views compute the other 
 
 `wiki/` holds what is true *now*: project pages, apparatus pages, procedures, how-tos. It is
 living text (changed through pull requests like any file, with its history in git), checked for
-compliance like entries but not append-only.
+compliance like entries but not append-only. A page needs no header; a page that must name what
+the checker flags (a safety page about eye injuries, say) records that it was read with one,
+exactly as an entry does (since v2026.10.19):
+
+```markdown
+---
+reviewed: [health]
+---
+# Laser safety
+```
 
 `wiki/references.bib` is the reference list: BibTeX, every record with a DOI or an ISBN, keys
 `LastnameYYYY`, the journal's short title in `shortjournal`, titles' capitals kept with double
@@ -212,7 +221,8 @@ Needs [pandoc](https://pandoc.org) (3.x) for both and [Typst](https://typst.app)
   site: {repository: owner/name}       # optional: host (default https://github.com), branch (main)
   ```
 
-  `logo: <path>` in `logbook.yaml` puts the lab's logo at the top of the sidebar (embedded in the page).
+  `logo: <path>` in `logbook.yaml` puts the lab's logo at the top of the sidebar (embedded in the page):
+  a square one next to the title, a wide one (a word mark) as a banner above it, both on a light card.
 
 ## The tools (since v2026.10.18)
 

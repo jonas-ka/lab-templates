@@ -1,6 +1,6 @@
 [project]
 name = "lablogbook"
-version = "2026.10.18"
+version = "2026.10.19"
 description = "Log-book entries as Markdown files: format, checker, rendering (lab-templates)"
 readme = "README.md"
 license = "MIT"

@@ -17,7 +17,7 @@ import datetime as dt
 import shutil
 from pathlib import Path
 
-from . import connect, pdf, state
+from . import connect, pdf, render, state
 from . import htmlview
 from .book import open_book
 from .entry import load_yaml
@@ -133,7 +133,7 @@ def summary(copy, projects: list[str], central: dict, sha: str, today: str) -> s
         page = (copy.projects or {}).get(p, {}).get("wiki")
         f = copy.wiki_dir / f"{page}.md" if page else None
         if f and f.exists():
-            lines += [f"## About {p}", "", f.read_text(encoding="utf-8").split("\n", 1)[-1].strip(), ""]
+            lines += [f"## About {p}", "", render.wiki_text(f).split("\n", 1)[-1].strip(), ""]
     st = state.compute(copy.entries)
     items = st.open_items(copy.entries)
     lines += [f"## Open items ({len(items)})", ""]

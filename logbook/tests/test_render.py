@@ -101,3 +101,18 @@ def test_cli_build(tmp_path):
                        capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     assert (tmp_path / "v.html").exists()
+
+
+def test_logo_proportions_decide_the_banner(tmp_path):
+    import struct, zlib
+    def png(w, h):
+        ihdr = struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0)
+        chunk = lambda t, d: struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d))
+        return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IEND", b"")
+    (tmp_path / "wide.png").write_bytes(png(2048, 487))
+    (tmp_path / "square.png").write_bytes(png(64, 64))
+    (tmp_path / "wide.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1510.13 350"></svg>')
+    assert html._image_size(tmp_path / "wide.png") == (2048, 487)
+    assert html._image_size(tmp_path / "square.png") == (64, 64)
+    assert html._image_size(tmp_path / "wide.svg") == (1510.13, 350)
+    assert html._image_size(tmp_path / "missing.png") == (0, 0)

@@ -21,6 +21,7 @@ import jsonschema
 from . import bib as bibmod
 from . import entry as entry_mod
 from . import epics, gitutil, patterns, state
+from . import render as render_mod
 from .book import Book
 from .entry import ID_RE, OPENABLE, CALLOUTS, Entry, EntryError
 
@@ -545,8 +546,10 @@ def run(book: Book, opts: Options) -> Report:
         check_entry(book, e, st, report, opts, new=e.id in new_ids)
     for w in wiki_files:
         rel = book.rel(w)
-        text = w.read_text(encoding="utf-8")
-        scan_text(book, rel, text, report, ci=opts.ci)
+        meta, body, head = render_mod.wiki_split(w.read_text(encoding="utf-8"))
+        r = meta.get("reviewed")
+        text = "\n" * head + body          # line numbers stay those of the file
+        scan_text(book, rel, text, report, reviewed={r} if isinstance(r, str) else set(r or []), ci=opts.ci)
         for m in entry_mod._WIKILINK.finditer(text):
             target = m.group(1).strip()
             if not target.startswith("wiki:") and target.split("#")[0] not in book.entries:

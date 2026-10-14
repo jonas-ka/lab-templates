@@ -151,12 +151,14 @@ def book_data(book: Book, p: render.Prepared, bodies: dict, wiki_html: dict, ref
             if a not in {x["id"] for x in apparatus}:
                 apparatus.append({"id": a, "name": a, "wiki": None})
     people = {h: {"name": p.name(h)} for e in p.entries for h in e.authors + list(e.header.get("attendees") or [])}
-    logo = None
+    logo, logo_wide = None, False
     if book.config.get("logo"):
         lp = (book.root / book.config["logo"]).resolve()
         if lp.exists():
             logo = _data_uri(lp)
-    return {"title": book.config.get("title", "Log book"), "logo": logo, "generated": dt.datetime.now().astimezone().isoformat(timespec="minutes"),
+            w, h = _image_size(lp)
+            logo_wide = bool(w and h and w > 1.6 * h)
+    return {"title": book.config.get("title", "Log book"), "logo": logo, "logo_wide": logo_wide, "generated": dt.datetime.now().astimezone().isoformat(timespec="minutes"),
             "today": today, "version": __version__, "site": _site(book), "people": people, "projects": projects,
             "apparatus": apparatus, "kinds": list(book.kinds), "entries": entries, "wiki": wiki, "references": refs}
 
@@ -178,6 +180,24 @@ def _render_parts(book: Book, p: render.Prepared):
         for m in re.finditer(r'<div id="ref-([^"]+)" class="csl-entry"[^>]*>(.*?)</div>', ref_out, re.S):
             refs_html[m.group(1)] = m.group(2).strip()
     return bodies, wiki_html, refs_html
+
+
+def _image_size(path: Path) -> tuple[float, float]:
+    """Width and height of a PNG or SVG, (0, 0) when unknown: a wide logo is shown as a banner."""
+    try:
+        if path.suffix.lower() == ".png":
+            head = path.read_bytes()[:24]
+            if head[:8] == b"\x89PNG\r\n\x1a\n":
+                return float(int.from_bytes(head[16:20], "big")), float(int.from_bytes(head[20:24], "big"))
+        elif path.suffix.lower() == ".svg":
+            import re
+            text = path.read_text(encoding="utf-8", errors="replace")[:4000]
+            m = re.search(r'viewBox="\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)', text)
+            if m:
+                return float(m.group(1)), float(m.group(2))
+    except (OSError, ValueError):
+        pass
+    return 0.0, 0.0
 
 
 def _data_uri(path: Path) -> str:
