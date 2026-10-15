@@ -83,6 +83,18 @@ version follows this one.
    small even when the raw data is not. Raw data too large for Drive, or living elsewhere (a lab
    computer, a repository, a cluster), stays where it is: put a short `data/WHERE.md` saying
    exactly where and how to get it; the fingerprint in the record proves it is the right data.
+
+   **Link the raw data both ways** with `raw=[...]` in `labfig.save` (a folder or file in a
+   repository or on the Drive, a URL, or a description like `"VISION /scratch/run42"`):
+   - **figure → data:** the record lists each raw location (a repository and the path in it,
+     the Drive path, or the description as given);
+   - **data → figure:** next to every raw location on this computer, `labfig.save` appends a line
+     to a `FIGURES.yaml` (figure, version, Drive folder and link, record). Anyone who finds the
+     raw data sees which figures were made from it; commit that file where the data is in git.
+   - **Asking later:** `uv run python lab/matplotlib/labfig.py where-used <data file or folder>`
+     lists the figures made from it (from `FIGURES.yaml`, and with `--archive <Figures folder>`
+     from every record whose data has the same checksum, also for data with no `FIGURES.yaml`,
+     e.g. on a cluster).
 3. **Write `figure.yaml`** (copy the block below). The caption and the alt text are yours to
    write: the caption is the one line under the figure; the alt text describes what is in
    the picture and what it shows, for readers who cannot see it ("Log-log plot of throughput
@@ -150,6 +162,19 @@ number.
   a label crossing a line or a marker is hard to read.
 - **Lines that connect panels** are drawn once across the figure (`matplotlib.patches.ConnectionPatch`),
   not as separate pieces per panel.
+- **Run figure scripts with uv:** `uv run plot_x.py`, with the dependencies pinned in the
+  script's inline metadata or in the project's `pyproject.toml` and `uv.lock`:
+
+  ```python
+  # /// script
+  # requires-python = ">=3.11"
+  # dependencies = ["matplotlib==3.11.2", "numpy==2.5.4"]
+  # ///
+  ```
+
+  `labfig.save` refuses to write a version from a script not run by uv, and records the
+  environment (Python and package versions, the inline metadata or the `uv.lock` checksum), so
+  the figure can be redrawn in the same environment. Colab notebooks and drafts are exempt.
 - STIX fonts (`STIX Two Text` / `STIXGeneral`, mathtext `stix`), as in the template notebook.
   **Start every figure script with the lab style:** `labfig.style()` (`matplotlib/labfig.py` in
   lab-templates; in a repository that carries the templates, `sys.path.insert(0, "lab/matplotlib")`

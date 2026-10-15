@@ -204,7 +204,9 @@
     spacing: 4pt,
     line(length: 100%, stroke: 0.6pt + band.darken(20%)),
     box(width: 100%, height: 16pt, {
-      place(left + horizon, text(size: 11pt, weight: "bold", fill: ink, utils.call-or-display(self, info.email)))
+      if info.at("email", default: none) != none {
+        place(left + horizon, text(size: 11pt, weight: "bold", fill: ink, utils.call-or-display(self, info.email)))
+      }
       if footer-citation != none {
         // A long citation is scaled down rather than allowed to run into the email
         // on the left or the sponsor logos and page number on the right.
@@ -277,7 +279,9 @@
 })
 
 // ---------------------------------------------------------------- theme
-#let karthein-theme(aspect-ratio: "16-9", handout: false, sponsors: false, email: [karthein\@tamu.edu], ..args, body) = {
+/// `email`: the presenter's address, shown at the left of every slide footer (none: no address).
+/// It can also be given as `config-info(email: ...)`.
+#let karthein-theme(aspect-ratio: "16-9", handout: false, sponsors: false, email: none, ..args, body) = {
   set document(title: "", author: "")  // overridden by the deck via config-info below
   set text(font: ("STIX Two Text", "Helvetica Neue"), size: 14pt, fill: ink, lang: "en")
   show math.equation: set text(font: "STIX Two Math")

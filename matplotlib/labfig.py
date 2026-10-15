@@ -43,6 +43,19 @@ bottom `STRIP_IN` inches, or let the lab themes do it: they find the strip by th
 "labfig info_strip_in=0.4" that `save` writes into the PDF, SVG and PNG metadata (or by a
 catalog field `info_strip: 0.4`). `info=False` saves without the strip.
 
+**Run figure scripts with uv** (`uv run plot_x.py`, dependencies pinned in the script's inline
+metadata `# /// script` or in the project's pyproject.toml and uv.lock): `save` refuses to write a
+version otherwise, so that the environment that drew a figure can be rebuilt; the record keeps
+it (`environment:` Python and package versions, the inline metadata or the uv.lock checksum).
+Notebooks (Colab) and drafts are exempt; LABFIG_ALLOW_NO_UV=1 opts out (e.g. outside the lab).
+
+**Raw data, both ways:** `raw=[...]` names where the raw data behind `data` lives (folders,
+files, URLs, or a description like "VISION /scratch/run42"). The record lists it (figure ->
+data), and next to every local location `save` appends one line to a `FIGURES.yaml` (data ->
+figure: figure, version, Drive folder, record). `python labfig.py where-used <data>` lists the
+figures made from a data file or folder: from its FIGURES.yaml, and with `--archive <Figures
+folder>` (or $LABFIG_ARCHIVE) from the records whose data files have the same checksum.
+
 The Drive link is passed in by whoever saves the figure; it never belongs in lab-templates
 (public). Records hold no absolute paths (paths relative to the figure folder or the script's
 repository). Works without the lab: everything except `version` (or `draft`), `author` and
@@ -291,12 +304,127 @@ def _record_text(fields: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _under_uv() -> bool:
+    """Run by `uv run` (uv sets UV and UV_RUN_RECURSION_DEPTH for the process it starts)."""
+    return bool(os.environ.get("UV") or os.environ.get("UV_RUN_RECURSION_DEPTH"))
+
+
+def _in_notebook() -> bool:
+    return "ipykernel" in sys.modules or "google.colab" in sys.modules
+
+
+def _check_uv() -> None:
+    """The lab's rule: figure scripts run with uv, so the environment that drew a figure can be
+    rebuilt. Notebooks (Colab) are exempt; LABFIG_ALLOW_NO_UV=1 opts out (e.g. outside the lab)."""
+    if _under_uv() or _in_notebook() or os.environ.get("LABFIG_ALLOW_NO_UV") == "1":
+        return
+    script = _calling_script()
+    raise RuntimeError(
+        f"run figure scripts with uv: `uv run {script.name if script else 'plot.py'}`, with the dependencies in "
+        "the script's inline metadata (# /// script) or in the project's pyproject.toml and uv.lock, so the "
+        "environment that drew the figure can be rebuilt. To save without uv anyway, set LABFIG_ALLOW_NO_UV=1.")
+
+
+def _environment(script: Path | None) -> dict:
+    """What drew the figure: Python and package versions, whether uv ran it, and the script's
+    inline dependencies or its project's uv.lock (path in the repository and checksum)."""
+    import platform
+    env: dict = {"python": platform.python_version(), "uv": _under_uv()}
+    env["packages"] = {n: m.__version__ for n in ("matplotlib", "numpy", "scipy", "pandas", "torch", "jax")
+                       if (m := sys.modules.get(n)) is not None and getattr(m, "__version__", None)}
+    if script and script.suffix == ".py" and script.exists():
+        m = re.search(r"(?ms)^# /// script[ \t]*\n(.*?)^# ///[ \t]*$", script.read_text(errors="ignore"))
+        if m:
+            env["inline_metadata"] = [line[2:] if line.startswith("# ") else line.lstrip("#") for line in m.group(1).splitlines()]
+        top = _git("rev-parse", "--show-toplevel", cwd=script.parent)
+        for d in [script.parent, *script.parents]:
+            if (d / "uv.lock").exists():
+                env["uv_lock"] = {"path": (d / "uv.lock").relative_to(Path(top).resolve()).as_posix() if top else "uv.lock",
+                                  "sha256": _file_sha(d / "uv.lock")}
+                break
+            if top and d == Path(top).resolve():
+                break
+    return env
+
+
+def _raw_location(loc: str | Path) -> dict:
+    """Where raw data lives, without absolute paths: a URL or description as given; a local
+    path as repository + path in it, as a path in the Drive, or relative to the home folder."""
+    s = str(loc)
+    p = Path(s).expanduser()
+    if "://" in s or not p.exists():
+        return {"location": s}
+    p = p.resolve()
+    where = p if p.is_dir() else p.parent
+    top = _git("rev-parse", "--show-toplevel", cwd=where)
+    if top:
+        return {"repository": _public_url(_git("remote", "get-url", "origin", cwd=where)),
+                "path": p.relative_to(Path(top).resolve()).as_posix()}
+    m = re.search(r"/CloudStorage/GoogleDrive-[^/]+/(.*)$", p.as_posix())
+    if m:
+        return {"location": "Drive: " + m.group(1)}
+    home = Path.home().resolve()
+    return {"location": "~/" + p.relative_to(home).as_posix() if p.is_relative_to(home) else p.name}
+
+
+def _write_backlinks(raw: list, figure_folder: Path, entry: dict) -> list[str]:
+    """Append one line to FIGURES.yaml next to each local raw-data location: the backward link from
+    the data to the figure. Append-only; locations that cannot be written are reported, not fatal."""
+    written = []
+    for loc in raw:
+        p = Path(str(loc)).expanduser()
+        if "://" in str(loc) or not p.exists():
+            continue
+        folder = (p if p.is_dir() else p.parent).resolve()
+        if folder == figure_folder.resolve() or figure_folder.resolve() in folder.parents:
+            continue                                    # data inside the figure folder: no backlink needed
+        target = folder / "FIGURES.yaml"
+        line = "- " + json.dumps({**entry, "uses": p.name if p.is_file() else "."}, ensure_ascii=False) + "\n"
+        try:
+            if not target.exists():
+                target.write_text("# Figures made from the data in this folder, one line per figure version.\n"
+                                  "# Written by labfig.save (lab-templates matplotlib/labfig.py); append-only.\n",
+                                  encoding="utf-8")
+            with open(target, "a", encoding="utf-8") as fh:
+                fh.write(line)
+            written.append(str(target))
+        except OSError as e:
+            warnings.warn(f"could not write the backlink {target}: {e}", stacklevel=3)
+    return written
+
+
+def where_used(path: str | Path, archive: str | Path | None = None) -> list[dict]:
+    """The figures made from the data at `path` (a file or a folder): the FIGURES.yaml backlinks next
+    to it, and the records in a figure archive (`archive`, default $LABFIG_ARCHIVE) whose data
+    files have the same checksum."""
+    p = Path(path).expanduser()
+    hits: list[dict] = []
+    bl = (p if p.is_dir() else p.parent) / "FIGURES.yaml"
+    if bl.exists():
+        for line in bl.read_text(encoding="utf-8").splitlines():
+            if line.startswith("- {"):
+                e = json.loads(line[2:])
+                if p.is_dir() or e.get("uses") in (".", p.name):
+                    hits.append({"via": "FIGURES.yaml", **e})
+    archive = archive or os.environ.get("LABFIG_ARCHIVE")
+    if archive:
+        shas = {_file_sha(f) for _, f in _data_files([p])}
+        for rec in sorted(Path(archive).expanduser().rglob("*-v*.yaml")):
+            for line in rec.read_text(encoding="utf-8", errors="ignore").splitlines():
+                if line.startswith("data: "):
+                    files = json.loads(line[6:]).get("files", [])
+                    used = [e["path"] for e in files if isinstance(e, dict) and e.get("sha256") in shas]
+                    if used:
+                        hits.append({"via": "checksum", "record": rec.relative_to(Path(archive).expanduser()).as_posix(), "files": used})
+    return hits
+
+
 def save(fig, path: str | Path, *, version: int | None = None, draft: bool = False,
          author: str, created: str | date,
          modified_by: str | None = None, modified: str | date | None = None,
          data: list[str | Path] | str | Path | None = None, data_id: str | None = None,
          code: str | Path | list[str | Path] | None = "auto", code_dir: str | Path | None = None,
-         note: str | None = None,
+         note: str | None = None, raw: list[str | Path] | str | Path | None = None,
          drive_folder: str | None = None, drive_url: str | None = None,
          formats: tuple[str, ...] = ("pdf", "svg", "png"), info: bool = True,
          svg_text: str = "path") -> Path:
@@ -318,6 +446,9 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
         run with, go in the record either way.
     code_dir: where the copies go (default: `code/` next to the figure), as `<stem>-v<N><ext>`.
     note: anything else needed to redraw the figure exactly (e.g. an environment setting).
+    raw: where the raw data behind `data` lives (local folders or files, URLs, or descriptions such
+        as "VISION /scratch/run42"): recorded in the record (forward link), and, for every local
+        location, one line appended to a FIGURES.yaml there (backward link: data -> figure).
     drive_folder, drive_url: the Drive folder the figure lives in (name shown as text; the link
         is embedded in PDF and SVG). Leave out when the figure is not on Drive.
     svg_text: "path" draws SVG text as outlines (looks the same wherever it is rendered, e.g.
@@ -326,6 +457,8 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
     """
     path = Path(path)
     folder = path.parent
+    if not draft:
+        _check_uv()
     # the code that drew the figure: the script is recorded always (repository, commit); the
     # files are copied unless code=None
     if isinstance(code, (list, tuple)):
@@ -354,6 +487,7 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
     folder.mkdir(parents=True, exist_ok=True)
 
     data_list = [data] if isinstance(data, (str, Path)) else list(data or [])
+    raw_list = [raw] if isinstance(raw, (str, Path)) else list(raw or [])
     fp = fingerprint(data_list) if data_list else None
     data_files = {_rel(f, folder): _file_sha(f) for _, f in _data_files(data_list)} if data_list else {}
     if data_files and not draft:
@@ -421,10 +555,36 @@ def save(fig, path: str | Path, *, version: int | None = None, draft: bool = Fal
         "code": {**sid, "copies": [_rel(dst, folder) for _, dst in copies]} if sid else None,
         "command": _command(folder),
         "note": note,
+        "environment": _environment(script),
+        "raw": [_raw_location(r) for r in raw_list],
         "data": {"fingerprint": f"sha256:{fp}" if fp else None, "id": data_id,
                  "files": [{"path": k, "sha256": v} for k, v in data_files.items()]} if (fp or data_id) else None,
         "drive": {"folder": drive_folder, "url": drive_url} if drive_folder else None,
         "info_strip_in": STRIP_IN if info else None,
     }
     (folder / f"{stem}.yaml").write_text(_record_text(_record), encoding="utf-8")
+    if raw_list:
+        _write_backlinks(raw_list, folder, {"figure": path.name, "version": version, "saved": _record["saved"],
+                                            "drive_folder": drive_folder, "drive_url": drive_url,
+                                            "record": f"{stem}.yaml", "data_fingerprint": f"sha256:{fp}" if fp else None})
     return out
+
+
+if __name__ == "__main__":
+    import argparse
+    ap = argparse.ArgumentParser(prog="labfig", description="Lab figure helpers.")
+    sub_ = ap.add_subparsers(dest="cmd", required=True)
+    w = sub_.add_parser("where-used", help="the figures made from a data file or folder")
+    w.add_argument("path")
+    w.add_argument("--archive", help="figure archive to search by checksum (default: $LABFIG_ARCHIVE)")
+    f = sub_.add_parser("fingerprint", help="the data fingerprint of files or folders")
+    f.add_argument("paths", nargs="+")
+    a = ap.parse_args()
+    if a.cmd == "where-used":
+        hits = where_used(a.path, a.archive)
+        for h in hits:
+            print(json.dumps(h, ensure_ascii=False))
+        if not hits:
+            print("no figure found (no FIGURES.yaml next to it; give --archive or set LABFIG_ARCHIVE to search records)")
+    else:
+        print(fingerprint(a.paths))

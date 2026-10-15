@@ -32,6 +32,8 @@ CHANGELOG.md   what changed in each tag; VERSION holds the current one
   `@preview/touying:0.6.1` (slides) and `@preview/mitex:0.2.7` (LaTeX math in slides).
 - **Fonts:** STIX Two Text and STIX Two Math for every theme (free, stixfonts.org; macOS ships
   both). The lab notebook uses Libertinus Serif, which is built into Typst.
+- **uv** for every Python in this repository: figure scripts run as `uv run plot_x.py`
+  (`matplotlib/labfig.py` refuses to save a figure version otherwise), and the log-book tools.
 - **matplotlib** for `themes/karthein.mplstyle`, `matplotlib/labfig.py` and the figure notebook;
   `make` for `make check`.
 - For the log-book tools (`logbook/`): **uv**, and **pandoc** 3.x to build the PDF and the HTML view.

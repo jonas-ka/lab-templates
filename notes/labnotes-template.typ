@@ -61,12 +61,13 @@
   title: "Log book",
   project: none,
   subproject: none,
-  author: "Jonas Karthein",
+  author: none,                      // who writes the log book (required)
   affiliation: "Cyclotron Institute, Texas A&M University",
   started: none,
   summary: none,
   body,
 ) = {
+  assert(author != none, message: "labnotes: give the log book's author, e.g. author: \"A. Author\"")
   set document(title: title, author: author)
   set page(
     paper: "us-letter",

@@ -1,11 +1,15 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["matplotlib==3.11.2", "numpy==2.5.4"]
+# ///
 """US CPI-U, 12-month percent change, monthly (figure `plot-us-cpi-u-yoy-2023-2026`, version 3).
 
 Data: BLS series CUUR0000SA0 (CPI-U, all items, US city average, not seasonally adjusted),
 public API v2, pulled 2026-10-01 and kept next to this script as
 `../data/CUUR0000SA0_2022-2026_bls-api.json`. Run from anywhere (`--fetch` pulls again):
 
-    uv run --with matplotlib --with numpy python plot_cpi.py            # from the saved JSON
-    uv run --with matplotlib --with numpy python plot_cpi.py --fetch    # POST to the BLS API v2
+    uv run plot_cpi.py            # from the saved JSON (dependencies: the inline metadata above)
+    uv run plot_cpi.py --fetch    # POST to the BLS API v2
 
 The 12-month change is (CPI_m / CPI_{m-12} - 1) x 100. A month without a published index
 (October 2025, the lapse in appropriations) is left as a gap, and so is every 12-month value
@@ -111,7 +115,8 @@ def main() -> None:
     # code=None: the script is in git (the record notes its commit), so no copy next to the figure
     out = labfig.save(fig, OUT, version=VERSION, author="J. Karthein", created="2026-10-01", modified_by="J. Karthein",
                       modified="2026-10-13", data=[DATA], data_id="BLS CUUR0000SA0, retrieved 2026-10-01",
-                      code=None, formats=formats)
+                      code=None, formats=formats,
+                      raw=["https://api.bls.gov/publicAPI/v2/timeseries/data/ (series CUUR0000SA0)"])
     print("wrote", out, "+", ", ".join(formats), f"(information strip: bottom {labfig.STRIP_IN} in)")
 
 

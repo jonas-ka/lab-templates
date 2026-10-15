@@ -2,6 +2,30 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.31 (2026-10-15)
+
+**Changes what some documents show; read before pulling.**
+
+- **No personal defaults in the templates.** The slide footer shows the **presenter's** address:
+  `karthein-theme(email: ...)` (or `config-info(email: ...)`) now defaults to none instead of one
+  person's address, and a deck without it shows no address. The poster footer's `contact` and
+  `website` default to none as well. The log-book template's `author` has no default and must be
+  given. **To keep a document as it was,** pass the address (`email: [name\@example.edu]`,
+  `contact: "name@example.edu"`, `website: "..."`) or the author explicitly.
+- **Figure scripts run with uv.** `labfig.save` refuses to write a figure version from a script that
+  was not started with `uv run` (dependencies pinned in the script's inline metadata or the
+  project's uv.lock), so the environment can be rebuilt; the record keeps it (`environment:`
+  Python and package versions, the inline metadata or the uv.lock checksum). Drafts and notebooks
+  (Colab) are exempt. **Outside the lab, or to keep an old workflow,** set `LABFIG_ALLOW_NO_UV=1`.
+- **Raw data linked both ways.** `labfig.save(..., raw=[...])` records where the raw data lives
+  (repository and path, Drive path, URL or description; no absolute paths) and appends a line to a
+  `FIGURES.yaml` next to every local raw location (figure, version, Drive folder, record), so the
+  data points back to its figures. `python labfig.py where-used <data>` lists the figures made from
+  a data file or folder (from `FIGURES.yaml`, and with `--archive` from the records' checksums).
+- The example script pins its dependencies inline and runs as `uv run plot_cpi.py`; its raw source
+  (the BLS API) is in `raw=`. The example figure itself is unchanged (version 3).
+- `docs/FIGURES_README.md`, `README.md`: the uv rule, the raw-data links.
+
 ## v2026.10.30 (2026-10-15)
 
 - `scripts/sync_drive.py` compares each file with its **newest** copy on the Drive (the plain
