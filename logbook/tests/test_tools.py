@@ -693,3 +693,39 @@ def test_deliver_copies_each_attested_month_once(tmp_path, monkeypatch):
     assert sum(c[:3] == ["gh", "release", "download"] for c in calls) == 1
     plist = deliver.launch_agent("org.example.logbook", tmp_path / "book", to)
     assert "<string>deliver</string>" in plist and str(to) in plist and "<key>Hour</key><integer>9</integer>" in plist
+
+
+def test_open_items_ranked_by_priority_age_and_overdue_asap(tmp_path):
+    import datetime as dt
+    from lablogbook import state
+    MEET = "2026-10-05-1100-cc-weekly-meeting"
+    d = tmp_path / "book"
+    shutil.copytree(EXAMPLE, d)
+    e1 = d / "entries/2026/2026-10-06-0900-aa-priorities.md"
+    e1.write_text("---\ndate: 2026-10-06\nauthors: [aa]\nkind: note\nproject: Example experiment\ntitle: Priorities\n"
+                  f"priority:\n  {RUN}#todo-repeat: low\n  {MEET}#todo-reading: asap\n---\n\n"
+                  "::: todo {#todo-valve priority=asap}\nThe valve.\n:::\n\n::: todo {#todo-label priority=high}\nLabels.\n:::\n")
+    book = open_book(d)
+    st = state.compute(book.entries)
+    assert st.priority(book.entries, f"{RUN}#todo-repeat") == ("low", "2026-10-06-0900-aa-priorities")
+    ranked = st.ranked_open_items(book.entries, dt.date(2026, 10, 7), asap_days=2)
+    # both ASAP: the older item first; neither overdue yet (todo-reading is from 5 October but ASAP since the 6th)
+    assert [x["anchor"] for x in ranked][:3] == ["todo-reading", "todo-valve", "todo-label"]
+    assert ranked[-1]["anchor"] == "todo-repeat" and not any(x["overdue"] for x in ranked)
+    later = st.ranked_open_items(book.entries, dt.date(2026, 10, 9), asap_days=2)
+    assert [x["anchor"] for x in later if x["overdue"]] == ["todo-reading", "todo-valve"]
+    text = reports.digest(book, today="2026-10-09")
+    assert "**overdue** asap, todo" in text and text.index("todo-valve") < text.index("todo-repeat")
+    out = subprocess.run([sys.executable, "-m", "lablogbook.cli", "--root", str(d), "open-items", "--priority", "low"],
+                         capture_output=True, text=True)
+    assert "todo-repeat" in out.stdout and "todo-valve" not in out.stdout
+
+
+def test_form_open_items_take_a_priority_prefix(tmp_path):
+    book = open_book(EXAMPLE)
+    answers = {"title": "T", "project": "Example experiment", "kind": "note", "body": "Text.",
+               "todos": "ASAP: Close the valve\nlow - Tidy the rack\nMedium: Order seals\nCheck the cable"}
+    _, body = github.draft_from_issue(book, answers, [], tmp_path, None, fetch=None)
+    assert "::: todo {#todo-1 priority=asap}\n- Close the valve\n:::" in body
+    assert "::: todo {#todo-2 priority=low}\n- Tidy the rack\n:::" in body
+    assert "::: todo {#todo-3}\n- Order seals\n:::" in body and "::: todo {#todo-4}\n- Check the cable\n:::" in body

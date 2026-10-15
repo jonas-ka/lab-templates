@@ -102,6 +102,15 @@ An `issue` or `todo` with an id (`::: todo {#todo-repeat}`) stays **open** until
 lists it under `resolves: [<entry-id>#todo-repeat]`; the views show both directions, and
 `logbook open-items` lists everything still open. Math is `$…$` (LaTeX).
 
+**Priorities** (since v2026.10.32): an open item is `low`, `medium` (the default), `high` or
+`asap`, written on the block (`::: todo {#todo-valve priority=asap}`). A later entry changes it
+with `priority: {<entry-id>#todo-valve: low}` in its header; the latest entry that names an
+item sets its priority, and the item links to it. Open items are listed most urgent first: an
+item that has been ASAP for longer than `open_items.asap_days` (in `logbook.yaml`, default 2,
+counted from the entry that made it ASAP) at the top, marked overdue; then by priority; then
+the oldest first. The view, `logbook open-items [--priority asap]` and the digest use this
+order; the view also filters by priority. The PDF shows a block's priority as written.
+
 ## Links
 
 Every link is written once, in the newer entry, and the views compute the other direction.
@@ -112,6 +121,7 @@ Every link is written once, in the newer entry, and the views compute the other 
 | related entries (a thread, a newer version of a figure) | `related: [<entry-id>, …]` |
 | a correction | `corrects: <entry-id>` |
 | an open item settled | `resolves: [<entry-id>#<block-id>]` |
+| an open item's priority changed | `priority: {<entry-id>#<block-id>: low \| medium \| high \| asap}` |
 | a wiki page | `[[wiki:apparatus/source]]` |
 | a reference | `[@Author2019]`, `[see @Author2019; @Solo2021]` |
 
@@ -170,7 +180,7 @@ uv run --project lab/logbook logbook check --base origin/main --submitter <login
 | kind known; its required fields | fail (recommended fields: warning) |
 | authors, projects, sub-projects, apparatus in the registries (central book) | fail |
 | dated in the future; late without `backfilled` | fail |
-| links, `corrects`, `related`, `redacts` point to existing entries; `resolves` to an open issue or todo | fail |
+| links, `corrects`, `related`, `redacts` point to existing entries; `resolves` and `priority` to an open issue or todo (`priority` to one already resolved: warning); `priority=` only on an issue or todo with an id | fail |
 | citations exist in the reference list; new references have a DOI or ISBN | fail |
 | files exist, inside `entries/`; sizes; plots have their SVG; drafts are not used; versions in figure names | fail / warning |
 | EPICS snapshots parse; PVs belong to the group | fail |
@@ -279,7 +289,7 @@ from them).
 
 | File | When | What |
 |---|---|---|
-| `ISSUE_TEMPLATE/new-entry.yml` | | The "New entry" form: the issue's title is the entry's title; then project, kind, the text, open items (one per line, each a resolvable `todo`), files and the export-control confirmation; images dragged into the text are stored as figures, and a caption, alt text and source written in the files field without a file of their own go with them; labels the form does not understand are reported on the issue; subproject, apparatus, co-authors, tags, date, corrects and resolves under "Optional". The view's links fill fields in: "New entry here" on a project or apparatus page, "Correct" on an entry, "Resolve" on an open item. |
+| `ISSUE_TEMPLATE/new-entry.yml` | | The "New entry" form: the issue's title is the entry's title; then project, kind, the text, open items (one per line, each a resolvable `todo`; a line starting `ASAP:`, `High:` or `Low:` gives it that priority), files and the export-control confirmation; images dragged into the text are stored as figures, and a caption, alt text and source written in the files field without a file of their own go with them; labels the form does not understand are reported on the issue; subproject, apparatus, co-authors, tags, date, corrects and resolves under "Optional". The view's links fill fields in: "New entry here" on a project or apparatus page, "Correct" on an entry, "Resolve" on an open item. |
 | `workflows/logbook-entry-from-issue.yml` | a form is submitted | Turns the form into an entry committed as its author, runs the checker, opens a pull request that merges itself, and reports back on the issue. A pull request opened by a workflow starts no other workflow, so this one runs the checker itself and posts the required check `entry-checks`. After the merge it starts the site's build (a merge by the workflow's token starts no other workflow). |
 | `workflows/logbook-checks.yml` | every pull request, every push to main | The check `entry-checks` that the ruleset requires. |
 | `workflows/logbook-site.yml` | every push to main | Builds the HTML view and the PDF and publishes them with GitHub Pages. |

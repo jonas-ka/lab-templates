@@ -27,6 +27,7 @@ from pathlib import Path
 
 from . import __version__, check, state
 from .book import open_book
+from .entry import PRIORITIES
 
 
 def _yes(question: str) -> bool:
@@ -302,11 +303,15 @@ def _cmd_schema(a) -> int:
 
 def _cmd_open(a) -> int:
     book = open_book(a.root)
-    items = state.compute(book.entries).open_items(book.entries)
+    items = state.compute(book.entries).ranked_open_items(
+        book.entries, book.now().date(), book.config["open_items"]["asap_days"])
     if a.project:
-        items = [x for x in items if a.project in x[0].projects]
-    for e, anchor, name in items:
-        print(f"{e.date}  {name:5}  {e.id}#{anchor}  [{e.header.get('project')}] {e.header.get('title')}")
+        items = [x for x in items if a.project in x["entry"].projects]
+    if a.priority:
+        items = [x for x in items if x["priority"] in a.priority]
+    for x in items:
+        e, flag = x["entry"], "OVERDUE " if x["overdue"] else ""
+        print(f"{flag}{x['priority']:6}  {x['age']:3} d  {x['kind']:5}  {x['key']}  [{e.header.get('project')}] {e.header.get('title')}")
     print(f"{len(items)} open item(s)")
     return 0
 
@@ -428,7 +433,9 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("schema", help="print the JSON Schema of the entry header")
     s.set_defaults(func=_cmd_schema)
     o = sub.add_parser("open-items", help="issues and todos nothing has resolved yet")
-    o.add_argument("--project"); o.set_defaults(func=_cmd_open)
+    o.add_argument("--project")
+    o.add_argument("--priority", action="append", choices=list(PRIORITIES), help="only these (repeatable)")
+    o.set_defaults(func=_cmd_open)
 
     a = ap.parse_args(argv)
     return a.func(a)

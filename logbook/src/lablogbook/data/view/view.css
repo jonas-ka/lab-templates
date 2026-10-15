@@ -307,3 +307,6 @@ dialog form { display: flex; justify-content: flex-end; margin-top: 14px; }
   .side, .topbar, .toolbar, .bar2 { display: none !important; }
   .app { display: block; } main { max-width: none; padding: 0; }
 }
+
+tr.overdue td { background: var(--red-bg); }
+.tag.overdue { font-weight: 600; }

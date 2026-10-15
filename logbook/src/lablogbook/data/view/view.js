@@ -258,7 +258,10 @@
       if (!el || el.querySelector(".state")) continue;
       const s = document.createElement("span");
       s.className = "state status " + (by.length ? "done" : "open");
-      s.innerHTML = by.length ? "Resolved in " + by.map((x) => entryLink(x)).join(", ") : "Open" + resolveLink(e, a, el.textContent.trim());
+      const pr = (e.priority || {})[a] || { level: "medium", by: null };
+      s.innerHTML = by.length ? "Resolved in " + by.map((x) => entryLink(x)).join(", ")
+        : "Open " + prioTag({ priority: pr.level, by: pr.by, overdue: isOverdue(pr, e) }) +
+          resolveLink(e, a, el.textContent.trim());
       el.appendChild(s);
     }
   }
@@ -291,13 +294,30 @@
     if (list.length > n) h += `<button class="btn more-btn" data-more="${n + (F.full ? 30 : 100)}">Show ${Math.min(F.full ? 30 : 100, list.length - n)} more</button>`;
     return h;
   }
-  function openItems(list) {
+  const PRIO = ["low", "medium", "high", "asap"];
+  // ASAP for longer than D.asapDays days, counted from the entry that made it ASAP
+  const isOverdue = (pr, e) => pr.level === "asap" && daysSince(pr.since || e.date) > (D.asapDays || 2);
+  const PRIO_LABEL = { low: "Low", medium: "Medium", high: "High", asap: "ASAP" };
+  const PRIO_HUE = { low: "gray", medium: "blue", high: "yellow", asap: "red" };
+  function prioTag(x) {
+    const by = x.by ? ` title="Priority set in ${esc((byId[x.by] || { title: x.by }).title)}"` : "";
+    return `<span class="tag ${PRIO_HUE[x.priority]}"${by}>${PRIO_LABEL[x.priority]}</span>` +
+      (x.overdue ? ` <span class="tag red overdue" title="ASAP for longer than ${D.asapDays || 2} days">overdue</span>` : "");
+  }
+  // open items, most urgent first: an ASAP item open longer than D.asapDays days, then by
+  // priority, then the oldest first; `order` "old" / "new" sorts by date only
+  function openItems(list, order = "urgent") {
     const out = [];
     for (const e of list) for (const [anchor, by] of Object.entries(e.resolved || {})) if (!by.length) {
       const b = (e.blocks || {})[anchor] || { name: "todo", text: "" };
-      out.push({ e, anchor, name: b.name, text: b.text });
+      const pr = (e.priority || {})[anchor] || { level: "medium", by: null };
+      out.push({ e, anchor, name: b.name, text: b.text, priority: pr.level, by: pr.by, age: daysSince(e.date),
+                 overdue: isOverdue(pr, e) });
     }
-    return out.sort((a, b) => a.e.date.localeCompare(b.e.date));
+    const byDate = (a, b) => a.e.date.localeCompare(b.e.date) || a.e.id.localeCompare(b.e.id);
+    if (order === "old") return out.sort(byDate);
+    if (order === "new") return out.sort((a, b) => byDate(b, a));
+    return out.sort((a, b) => (b.overdue - a.overdue) || (PRIO.indexOf(b.priority) - PRIO.indexOf(a.priority)) || byDate(a, b));
   }
   function table(head, trs, cls = "t") {
     return `<div class="tbl-wrap"><table class="${cls}"><thead><tr>${head.map((x) => `<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>` +
@@ -335,6 +355,7 @@
 
   // ------------------------------------------------------------------ views ---------------
   let limit = 100;
+  const OP = { prio: "", sort: "urgent" };   // the open-items page's own priority filter and order
   function viewEntries() {
     listBase = "#/";
     const { list, Q } = filtered();
@@ -346,16 +367,22 @@
   function viewOpen() {
     listBase = "#/open";
     const { list, Q } = filtered();
-    const items = openItems(list).filter((x) => !Q.terms.length || Q.terms.every((t) => norm(x.text + " " + x.e.title).includes(t)));
+    const items = openItems(list, OP.sort).filter((x) => (!OP.prio || x.priority === OP.prio) &&
+      (!Q.terms.length || Q.terms.every((t) => norm(x.text + " " + x.e.title).includes(t))));
     crumbs([{ t: "Open items" }]);
     main.className = "wide";
-    main.innerHTML = pageHead("Open items", `Issues and todos that no later entry has resolved yet. A new entry resolves one by listing it under <code class="c">resolves:</code>.`) +
+    main.innerHTML = pageHead("Open items", `Issues and todos that no later entry has resolved yet, most urgent first: items ASAP for longer than ${D.asapDays || 2} days, then by priority, then the oldest. A new entry resolves one by listing it under <code class="c">resolves:</code>, and changes a priority with <code class="c">priority: {&lt;entry-id&gt;#&lt;item&gt;: low}</code>.`) +
       toolbar(items.length, openItems(E).length) +
-      (items.length ? table(["Item", "Entry", "Project", "Open since", "By"], items.map((x) => ({ cells: [
+      `<div class="bar2"><select class="select-plain" id="op-prio" aria-label="Priority"><option value="">Every priority</option>` +
+      PRIO.slice().reverse().map((k) => `<option value="${k}"${OP.prio === k ? " selected" : ""}>${PRIO_LABEL[k]}</option>`).join("") + `</select>` +
+      `<select class="select-plain" id="op-sort" aria-label="Order">` +
+      [["urgent", "Most urgent first"], ["old", "Oldest first"], ["new", "Newest first"]].map(([k, l]) => `<option value="${k}"${OP.sort === k ? " selected" : ""}>${l}</option>`).join("") + `</select></div>` +
+      (items.length ? table(["Item", "Priority", "Entry", "Project", "Open since", "By"], items.map((x) => ({ cls: x.overdue ? "overdue" : "", cells: [
         { html: `<span class="status open" title="${esc(x.name)}"></span> ${highlight(x.text, Q.terms)}${resolveLink(x.e, x.anchor, x.text)}`, cls: "item" },
+        { html: prioTag(x), cls: "nowrap" },
         { html: entryLink(x.e.id, x.anchor, x.e.title), cls: "entry" },
         { html: projTag(x.e.project, x.e.subproject) },
-        { html: `${esc(fmtDate(x.e.date))} <span class="tag gray">${daysSince(x.e.date)} d</span>`, cls: "nowrap" },
+        { html: `${esc(fmtDate(x.e.date))} <span class="tag gray">${x.age} d</span>`, cls: "nowrap" },
         { html: `<span class="avs">${x.e.authors.map((a) => avatar(a)).join("")}</span>` }] })), "t full") : `<p class="empty">Nothing open.</p>`);
   }
   function snapshotTable(s, other) {
@@ -414,6 +441,10 @@
       const [tid, a] = r.split("#"), t = byId[tid], b = t && (t.blocks || {})[a];
       h += `<div class="banner resolve"><b>Resolves</b> ${entryLink(tid, a)}${b ? `<span class="q">${esc(b.text)}</span>` : ""}</div>`;
     }
+    for (const [r, level] of Object.entries(e.reprioritises || {})) {
+      const [tid, a] = r.split("#"), t = byId[tid], b = t && (t.blocks || {})[a];
+      h += `<div class="banner resolve"><b>Priority ${esc(PRIO_LABEL[level] || level)}</b> ${entryLink(tid, a)}${b ? `<span class="q">${esc(b.text)}</span>` : ""}</div>`;
+    }
     if ((e.parameters || []).length) h += paramTable(e);
     h += `<div class="prose" id="body">${e.html}</div>`;
     e.epics.forEach((s, k) => {
@@ -458,7 +489,7 @@
       `<a class="tile" href="#/project/${enc(p.name)}"><b>${esc(p.name)}</b><span>${pc[p.name] || 0} entries · ${open.filter((x) => projectsOf(x.e).includes(p.name)).length} open</span></a>`).join("") + `</div>`;
   }
   function openList(open) {
-    return open.length ? `<ul class="links">${open.map((x) => `<li><span class="status open"></span>${esc(x.text)}<span class="d">${entryLink(x.e.id, x.anchor, fmtDate(x.e.date))}</span></li>`).join("")}</ul>`
+    return open.length ? `<ul class="links">${open.map((x) => `<li><span class="status open"></span>${esc(x.text)} ${prioTag(x)}<span class="d">${entryLink(x.e.id, x.anchor, fmtDate(x.e.date))}</span></li>`).join("")}</ul>`
                        : `<p class="desc">Nothing open.</p>`;
   }
   function viewProject(n) {
@@ -652,6 +683,8 @@
   });
   main.addEventListener("change", (ev) => {
     if (ev.target.id === "sort") { F.sort = ev.target.value; go(); }
+    if (ev.target.id === "op-prio") { OP.prio = ev.target.value; go(); }
+    if (ev.target.id === "op-sort") { OP.sort = ev.target.value; go(); }
     if (ev.target.dataset.act === "full") { F.full = ev.target.checked; limit = 100; go(); }
   });
   $("#top-actions").addEventListener("click", (ev) => {

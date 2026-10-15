@@ -293,7 +293,22 @@ def check_entry(book: Book, e: Entry, st: state.State, report: Report, opts: Opt
             report.add("fail", "resolves", rel, _header_line(e, "resolves"),
                        f"#{anchor} of '{tid}' is already resolved by {', '.join(st.resolved_by[target])}")
 
+    for target in (h.get("priority") or {}) if isinstance(h.get("priority"), dict) else []:
+        tid, _, anchor = str(target).partition("#")
+        t = book.entries.get(tid)
+        block = t.anchors().get(anchor) if t else None
+        if block is None or block.name not in OPENABLE:
+            report.add("fail", "priority", rel, _header_line(e, "priority"), f"'{target}': no such issue or todo")
+        elif st.resolved_by.get(target):
+            report.add("warn", "priority", rel, _header_line(e, "priority"),
+                       f"'{target}' is already resolved by {', '.join(st.resolved_by[target])}; its priority no longer matters")
+
     # --- blocks ----------------------------------------------------------------------------------
+    for b in e.blocks:
+        if b.priority is not None and (b.priority not in entry_mod.PRIORITIES or b.name not in OPENABLE or not b.anchor):
+            report.add("fail" if new else "warn", "block", rel, b.line,
+                       f"priority={b.priority}: only an issue or todo with an id has a priority, one of "
+                       + ", ".join(entry_mod.PRIORITIES))
     for line_no, msg in entry_mod.block_problems(e.body, e.body_line):
         # a new entry is fixed before it goes in; one already in the book cannot change any more
         report.add("fail" if new else "warn", "block", rel, line_no, msg)

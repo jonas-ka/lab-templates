@@ -85,10 +85,13 @@ def book_data(book: Book, p: render.Prepared, bodies: dict, wiki_html: dict, ref
             except (OSError, ValueError):
                 pvs = []
             epics.append({"group": snap["group"], "label": snap.get("label"), "file": snap["file"], "pvs": pvs})
-        resolved = {}
+        resolved, priority = {}, {}
         for b in e.blocks:
             if b.anchor and b.name in OPENABLE:
                 resolved[b.anchor] = st.resolved_by.get(f"{e.id}#{b.anchor}", [])
+                level, by = st.priority(book.entries, f"{e.id}#{b.anchor}")
+                priority[b.anchor] = {"level": level, "by": by,
+                                      "since": book.entries[by].date if by in book.entries else e.date}
         lg = p.logged.get(e.id)
         entries.append({
             "id": e.id, "date": e.date, "time": h.get("time"), "logged": p.logged_text(e),
@@ -109,7 +112,8 @@ def book_data(book: Book, p: render.Prepared, bodies: dict, wiki_html: dict, ref
             "refs": h.get("refs") or {},
             "corrects": h.get("corrects"), "correctedBy": st.corrected_by.get(e.id, []),
             "redacts": h.get("redacts"), "redactedBy": st.redacted_by.get(e.id, []),
-            "resolves": h.get("resolves") or [], "resolved": resolved,
+            "resolves": h.get("resolves") or [], "resolved": resolved, "priority": priority,
+            "reprioritises": h.get("priority") if isinstance(h.get("priority"), dict) else {},
             "related": sorted(st.related.get(e.id, set())), "backlinks": sorted(st.backlinks.get(e.id, set())),
             "blocks": {a: {"name": n, "text": t} for a, (n, t) in blocks.items()},
             "cites": sorted({k for k, _ in e.citations()}),
@@ -159,7 +163,7 @@ def book_data(book: Book, p: render.Prepared, bodies: dict, wiki_html: dict, ref
             w, h = _image_size(lp)
             logo_wide = bool(w and h and w > 1.6 * h)
     return {"title": book.config.get("title", "Log book"), "logo": logo, "logo_wide": logo_wide, "generated": book.now().isoformat(timespec="minutes"),
-            "today": today, "version": __version__, "site": _site(book), "people": people, "projects": projects,
+            "today": today, "asapDays": book.config["open_items"]["asap_days"], "version": __version__, "site": _site(book), "people": people, "projects": projects,
             "apparatus": apparatus, "kinds": list(book.kinds), "entries": entries, "wiki": wiki, "references": refs}
 
 

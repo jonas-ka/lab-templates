@@ -18,6 +18,7 @@ from pathlib import Path
 import yaml
 
 from .book import Book
+from .entry import DEFAULT_PRIORITY
 
 NO_RESPONSE = "_No response_"
 FORM_LABELS = {  # issue-form label -> field
@@ -32,6 +33,9 @@ LEGACY_LABELS = {"Title", "Figures, data and attachments"}
 
 class IssueError(RuntimeError):
     pass
+
+
+_PRIORITY_PREFIX = re.compile(r"^(asap|high|medium|low)\s*[:\-–]\s*", re.I)   # "ASAP: …" in the form
 
 
 def issue_form(book: Book) -> dict:
@@ -50,7 +54,8 @@ def issue_form(book: Book) -> dict:
             "`::: todo {#todo-1}` makes an open item. Link entries as [[entry-id]].")},
          "validations": {"required": True}},
         {"type": "textarea", "id": "todos", "attributes": {"label": "Open items", "description": (
-            "One per line. Each becomes an open item that a later entry can resolve.")}},
+            "One per line. Each becomes an open item that a later entry can resolve. Start a line with "
+            "`ASAP:`, `High:` or `Low:` to give it that priority (otherwise medium).")}},
         {"type": "textarea", "id": "files", "attributes": {"label": "Figures and files", "description": (
             "Drag files here, one paragraph each, with `Caption: …` and `Alt: …` under a figure "
             "(a plot: its PDF and SVG) and `Source: …` under a data file.")}},
@@ -195,7 +200,10 @@ def draft_from_issue(book: Book, answers: dict, files: list[dict], workdir: Path
         while f"todo-{k}" in taken:
             k += 1
         taken.add(f"todo-{k}")
-        body = body.rstrip() + f"\n\n::: todo {{#todo-{k}}}\n- {item}\n:::\n"
+        m = _PRIORITY_PREFIX.match(item)
+        level, item = (m.group(1).lower(), item[m.end():].strip()) if m else (None, item)
+        attrs = f"#todo-{k}" + (f" priority={level}" if level and level != DEFAULT_PRIORITY else "")
+        body = body.rstrip() + f"\n\n::: todo {{{attrs}}}\n- {item}\n:::\n"
     confirmed = "[x]" in answers.get("export_control", "").lower()
     by_stem: dict[str, list[dict]] = {}
     for f in files:

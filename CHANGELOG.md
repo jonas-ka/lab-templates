@@ -2,6 +2,18 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.32 (2026-10-15)
+
+- **Priorities for open items** (`docs/LOGBOOK_FORMAT.md`, "Blocks"): `low`, `medium` (the
+  default), `high`, `asap`, on the block (`::: todo {#todo-x priority=high}`) or changed by a
+  later entry (`priority: {<entry-id>#todo-x: low}`). Open items are listed most urgent first: an
+  item ASAP for longer than `open_items.asap_days` (default 2) on top, marked overdue, then by
+  priority, then the oldest. In the view (with a priority filter and an order), in
+  `logbook open-items [--priority …]` and in the digest; the PDF shows a written priority. The
+  form: a line under "Open items" starting with `ASAP:`, `High:` or `Low:`. The checker fails an
+  unknown level, a `priority` naming no open item, and `priority=` on another kind of block.
+  **Run `logbook init-github`** (the form's help text).
+
 ## v2026.10.31 (2026-10-15)
 
 **Changes what some documents show; read before pulling.**

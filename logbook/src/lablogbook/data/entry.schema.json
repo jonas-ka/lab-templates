@@ -49,6 +49,9 @@
     "related": {"type": "array", "items": {"$ref": "#/$defs/entry_id"}, "uniqueItems": true},
     "resolves": {"type": "array", "items": {"$ref": "#/$defs/anchored_id"}, "uniqueItems": true,
                  "description": "Open issue or todo blocks of earlier entries that this entry settles: <entry-id>#<block-id>."},
+    "priority": {"type": "object", "propertyNames": {"$ref": "#/$defs/anchored_id"},
+                 "additionalProperties": {"enum": ["low", "medium", "high", "asap"]},
+                 "description": "New priorities for open items of earlier entries: {<entry-id>#<block-id>: low | medium | high | asap}. The latest entry that names an item sets its priority."},
     "figures": {
       "type": "array",
       "items": {
