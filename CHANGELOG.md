@@ -2,6 +2,18 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.33 (2026-10-15)
+
+- **`logbook migrate`: references keep their file names.** `#refs((…))` values lost every `_`
+  and `*` (`tests/test_scaling.py` became `tests/testscaling.py`), and `link("…")[…]` came out
+  as Typst code. They are now plain text in an entry's `refs` (code marks removed, what is
+  inside them kept; a link as "text (url)") and Markdown on a wiki page (code kept as code,
+  links as links). A project background's "Where things live" no longer gets the heading
+  twice, nor every value wrapped in one code span. Books migrated before keep what was
+  written: re-check `refs` of migrated entries.
+- **Export PDF:** the header line "Project:" names the selected projects only (it read
+  "project Lab; dated …"); the whole selection stays in the summary.
+
 ## v2026.10.32 (2026-10-15)
 
 - **Priorities for open items** (`docs/LOGBOOK_FORMAT.md`, "Blocks"): `low`, `medium` (the

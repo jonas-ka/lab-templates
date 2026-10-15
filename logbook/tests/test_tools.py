@@ -729,3 +729,17 @@ def test_form_open_items_take_a_priority_prefix(tmp_path):
     assert "::: todo {#todo-1 priority=asap}\n- Close the valve\n:::" in body
     assert "::: todo {#todo-2 priority=low}\n- Tidy the rack\n:::" in body
     assert "::: todo {#todo-3}\n- Order seals\n:::" in body and "::: todo {#todo-4}\n- Check the cable\n:::" in body
+
+
+@pytest.mark.skipif(shutil.which("pandoc") is None, reason="pandoc not installed")
+def test_migrated_refs_keep_file_names_and_links():
+    refs = migrate.parse_refs('("Test": raw("tests/test_scaling.py"), "Docs": [`PROJECT_PLAN.md`, `review/stage-*.csv` (*not* tracked)], '
+                              '"Code": link("https://github.com/org/repo")[org/repo], "Bare": link("https://example.org"), '
+                              '"Last": [`notes/` (log book, figures from `scripts/logbook_figures.py`)],)')
+    assert refs == {"Test": "tests/test_scaling.py", "Docs": "PROJECT_PLAN.md, review/stage-*.csv (not tracked)",
+                    "Code": "org/repo (https://github.com/org/repo)", "Bare": "https://example.org",
+                    "Last": "notes/ (log book, figures from scripts/logbook_figures.py)"}
+    md = migrate.parse_refs('("Test": raw("tests/test_scaling.py"), "Decks": [`talks/<slug>/` and `review/*.html`], '
+                            '"Code": link("https://github.com/org/repo")[org/repo])', markdown=True)
+    assert md == {"Test": "`tests/test_scaling.py`", "Decks": "`talks/<slug>/` and `review/*.html`",
+                  "Code": "[org/repo](https://github.com/org/repo)"}

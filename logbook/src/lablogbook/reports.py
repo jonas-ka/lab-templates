@@ -29,7 +29,9 @@ def export(book: Book, f: Filter, out: Path, requested_by: str | None = None, ap
         parts.append("Authors are shown by role, not by name.")
     parts.append("Entries are shown as they were written; corrections are later entries.")
     path = pdf.build(book, out, entries, title=f"{book.config.get('title', 'Log book')}: export",
-                     subtitle=f.describe(book), summary=" ".join(parts), keep_source=False, anonymise=anonymise)
+                     # the template labels the subtitle "Project:"; the whole selection is in the summary
+                     subtitle=", ".join(f.projects) if f.projects else "all projects",
+                     summary=" ".join(parts), keep_source=False, anonymise=anonymise)
     return path, len(entries)
 
 

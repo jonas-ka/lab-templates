@@ -45,8 +45,8 @@ mkdir lab-notes && cd lab-notes && git init -b main
 git commit --allow-empty -m "A new log book"
 # the tools and templates, as a git subtree in lab/, pinned to a tag (the newest: CHANGELOG.md)
 git remote add lab-templates https://github.com/jonas-ka/lab-templates.git
-git fetch lab-templates tag v2026.10.32
-git subtree add --prefix lab lab-templates v2026.10.32 --squash -m "lab-templates v2026.10.32 in lab/"
+git fetch lab-templates tag v2026.10.33
+git subtree add --prefix lab lab-templates v2026.10.33 --squash -m "lab-templates v2026.10.33 in lab/"
 # settings, registries, wiki skeleton, policy starters, README, Makefile
 uv run --project lab/logbook logbook init . --title "Example Lab Notes" --lab "Example Lab" \
     --institution "Example University" --pi-name "A. Author" --pi-handle aa --pi-login a-author \

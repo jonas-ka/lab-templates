@@ -232,24 +232,27 @@ def pandoc_md(typst: str) -> str:
 @dataclass
 class Body:
     md: str
-    refs: dict = field(default_factory=dict)
+    refs: dict = field(default_factory=dict)      # plain text, for an entry's header
     figures: list = field(default_factory=list)   # (path as written, caption md)
+    refs_md: dict = field(default_factory=dict)   # the same as Markdown, for a wiki page
 
 
 def convert(content: str, base: Path) -> Body:
     """Typst markup of one note/entry → Markdown, with callouts, refs and figures taken out."""
     found = calls(content, set(CALLOUTS) | {"refs", "figure"})
-    out, refs, figs, pos = [], {}, [], 0
+    out, refs, refs_md, figs, pos = [], {}, {}, [], 0
     for c in found:
         out.append(pandoc_md(content[pos:c.start]))
         pos = c.end
         if c.name in CALLOUTS:
             inner = convert(c.bodies[0] if c.bodies else "", base)
             refs.update(inner.refs)
+            refs_md.update(inner.refs_md)
             figs += inner.figures
             out.append(f"::: {CALLOUTS[c.name]}\n{inner.md}\n:::")
         elif c.name == "refs":
             refs.update(parse_refs(c.args or ""))
+            refs_md.update(parse_refs(c.args or "", markdown=True))
         elif c.name == "figure":
             m = re.search(r'\bimage\(\s*"([^"]+)"', c.args or "")   # code mode: image(...) without '#'
             path = m.group(1) if m else None
@@ -261,11 +264,12 @@ def convert(content: str, base: Path) -> Body:
                 out.append(pandoc_md(content[c.start:c.end]))
     out.append(pandoc_md(content[pos:]))
     md = "\n\n".join(x for x in out if x.strip())
-    return Body(re.sub(r"\n{3,}", "\n\n", md), refs, figs)
+    return Body(re.sub(r"\n{3,}", "\n\n", md), refs, figs, refs_md)
 
 
-def parse_refs(args: str) -> dict:
-    """`#refs(("Label": [content] or raw("…") or "…", …))` → {label: text}."""
+def parse_refs(args: str, markdown: bool = False) -> dict:
+    """`#refs(("Label": [content] or raw("…") or "…", …))` → {label: text}: plain text for an
+    entry's `refs` header, or Markdown (code kept as code, links as links) for a wiki page."""
     inner = args.strip()
     if inner.startswith("(") and inner.endswith(")"):
         inner = inner[1:-1]
@@ -281,17 +285,37 @@ def parse_refs(args: str) -> dict:
         elif inner.startswith("raw(", j):
             k = _match_args(inner, j + 3)
             val = (strings(inner[j + 4:k - 1]) or [""])[0]
+            val = f"`{val}`" if markdown else val
         elif j < len(inner) and inner[j] == '"':
             k = _skip_string(inner, j)
             val = inner[j + 1:k - 1]
+        elif inner.startswith("link(", j):   # link("url")[text] -> "text (url)"
+            k = _match_args(inner, j + 4)
+            url = (strings(inner[j + 5:k - 1]) or [""])[0]
+            text = ""
+            if k < len(inner) and inner[k] == "[":
+                e = _match_content(inner, k)
+                text, k = pandoc_md(inner[k + 1:e - 1]).replace("\n", " ").strip(), e
+            if markdown:
+                val = f"[{text}]({url})" if text and text != url else f"<{url}>"
+            else:
+                val = f"{text} ({url})" if text and text != url else url
         else:
             k = j
             while k < len(inner) and inner[k] != ",":
                 k += 1
             val = inner[j:k].strip()
-        out[key] = re.sub(r"[`*_]", "", val).strip()
+        out[key] = val.strip() if markdown else _plain_ref(val)
         i = k
     return out
+
+
+def _plain_ref(md: str) -> str:
+    """A reference as plain text: code marks and emphasis removed, but what is inside code
+    (file names like `test_scaling.py`, `stage-*.csv`) kept as it is."""
+    parts = re.split(r"(`[^`]*`)", md)
+    return "".join(p[1:-1] if p.startswith("`") and p.endswith("`") else re.sub(r"(?<!\w)[*_]+|[*_]+(?!\w)", "", p)
+                   for p in parts).replace("\\", "").strip()
 
 
 # ------------------------------------------------------------------------------ authors, history --
@@ -463,8 +487,10 @@ def migrate(source: Path, book: Book, project: str | None = None, mapping: dict[
         b = convert(text[bg.end():end], source.parent)
         page = book.wiki_dir / "projects" / f"{_slug(proj)}.md"
         page.parent.mkdir(parents=True, exist_ok=True)
-        refs = "".join(f"- **{k}:** `{v}`\n" for k, v in b.refs.items())
-        if refs:   # a background's #refs table: kept as a list (the wiki has no header for it)
+        home = str(Path.home())
+        refs = "".join(f"- **{k}:** {v.replace(home, '~')}\n" for k, v in b.refs_md.items())
+        if refs and not re.search(r"^#+\s+Where things live\s*$", b.md, re.M):
+            # a background's #refs table: kept as a list (the wiki has no header for it)
             refs = "\n## Where things live\n\n" + refs
         if page.exists():   # never overwrite a page: the background goes next to it, to be merged by hand
             page = page.with_name(f"{_slug(proj)}-migrated.md")
