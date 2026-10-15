@@ -45,7 +45,14 @@ RULES: list[tuple[str, str, re.Pattern, str]] = [
 
 # "student Jane Doe", "Jane Doe (student)", "graduate student Jane"
 STUDENT_NAME = re.compile(r"\b(?:under)?(?:graduate\s+)?students?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)|\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*\((?:an?\s+)?(?:under)?(?:graduate\s+)?student\)")
-TAMU_EMAIL = re.compile(r"\b[\w.+-]+@(?:[\w-]+\.)*tamu\.edu\b", re.I)
+
+ADDRESS = re.compile(r"\b[\w.+-]+@((?:[\w-]+\.)+[a-z]{2,})\b", re.I)
+
+
+def institutional(host: str, domains: list[str]) -> bool:
+    """True when an address's host is one of `domains` or below one ("edu" covers every .edu host)."""
+    host = host.lower()
+    return any(host == d or host.endswith("." + d) for d in (x.lower().lstrip(".") for x in domains))
 EMAIL = re.compile(r"\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b")
 
 # Capitalised words that follow "student" without being a name.
@@ -53,6 +60,14 @@ NOT_NAMES = {"Union", "Center", "Centre", "Services", "Affairs", "Council", "Gov
              "Researchers", "Workers", "Worker", "Researcher", "Assistant", "Assistants", "Version", "The", "A", "An"}
 
 
-def scan_line(line: str) -> list[tuple[str, str, str]]:
-    """(code, category, message) for every rule that matches the line."""
-    return [(code, cat, msg) for code, cat, rx, msg in RULES if rx.search(line)]
+DEFAULT_ID_PATTERN = next(rx.pattern for code, _c, rx, _m in RULES if code == "ferpa-uin")
+
+
+def scan_line(line: str, id_pattern: "re.Pattern | None | bool" = True) -> list[tuple[str, str, str]]:
+    """(code, category, message) for every rule that matches the line. `id_pattern`: True keeps
+    the built-in ID rule (nine digits), a compiled pattern replaces it, None turns it off."""
+    hits = [(code, cat, msg) for code, cat, rx, msg in RULES if code != "ferpa-uin" and rx.search(line)]
+    rx = re.compile(DEFAULT_ID_PATTERN) if id_pattern is True else id_pattern
+    if rx is not None and rx.search(line):
+        hits.insert(0, ("ferpa-uin", "ferpa", "a number shaped like a student or staff ID"))
+    return hits

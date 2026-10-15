@@ -2,6 +2,29 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.27 (2026-10-15)
+
+A central log book from scratch, for any lab (`docs/LOGBOOK_SETUP.md`):
+
+- **`logbook init <dir>`**: settings, registries, a wiki skeleton, a README, a Makefile and
+  starter policy documents (`docs/COMPLIANCE.md`, `docs/REDACTION.md`) in which every
+  institution-specific fact is a marked `TODO(...)`; it overwrites nothing.
+- **`logbook github-settings --repo O/N --admin LOGIN`** prints a script for the repository's
+  owner: squash-only merges with the description as message, auto-merge, Actions allowed to open
+  pull requests, the label `new-entry`, the environments `export` and `attest`, the ruleset on
+  `main` (its check required from GitHub Actions; the admin role as bypass), private Pages
+  (turned off again, and the script stops, where Pages cannot be private).
+- `logbook init-github` also writes `CODEOWNERS` (the admins own everything outside `entries/`
+  and `wiki/`), never replacing one that exists.
+- **The checker's local rules in `logbook.yaml`**: `privacy.email_domains` (institutional
+  addresses of non-members are flagged; default every `.edu`, replacing the fixed
+  university domain) and `privacy.id_pattern` (student or staff ID numbers; default nine
+  digits; `null` turns it off). **A book that relied on the fixed domain sets
+  `privacy: {email_domains: [<its domain>]}`** before pulling this tag, or it flags every `.edu` address.
+- `docs/LOGBOOK_SETUP.md`: decisions to make first (hosting and who reads it, private Pages,
+  policy, AI tools), creating the book, GitHub, a starting point for GitLab (not yet tested),
+  and what was learned (subtree lines in squash merges, stacked pull requests, custom domains).
+
 ## v2026.10.26 (2026-10-14)
 
 - `docs/FIGURES_README.md`, `matplotlib/labfig.py`: **when a figure version is frozen.** Once it

@@ -22,6 +22,7 @@ from . import bib as bibmod
 from . import entry as entry_mod
 from . import epics, gitutil, patterns, state
 from . import render as render_mod
+from .patterns import institutional
 from .book import Book
 from .entry import ID_RE, OPENABLE, CALLOUTS, Entry, EntryError
 
@@ -143,8 +144,12 @@ def scan_text(book: Book, rel: str, text: str, report: Report, reviewed: set[str
     names = {p.name for p in (book.people or {}).values()} | {p.handle for p in (book.people or {}).values()}
     surnames = {n.split()[-1] for n in names if n}
     emails = {(p.email or "").lower() for p in (book.people or {}).values()}
+    privacy = book.config.get("privacy") or {}
+    domains = privacy.get("email_domains", ["edu"]) or []
+    idp = privacy.get("id_pattern", patterns.DEFAULT_ID_PATTERN)
+    id_rx = re.compile(idp) if idp else None
     for i, line in enumerate(text.splitlines(), start=1):
-        hits = patterns.scan_line(line)
+        hits = patterns.scan_line(line, id_rx)
         for code, cat, msg in hits:
             if cat == "drive" and not book.config.get("forbid_drive_ids", False):
                 report.add("info", code, rel, i, "a Google Drive link: fine in this log book as long as the file's sharing "
@@ -167,7 +172,9 @@ def scan_text(book: Book, rel: str, text: str, report: Report, reviewed: set[str
                            "a person named as a student who is not a lab member" +
                            ("; reviewed by the author" if level == "warn" else
                             " (if harmless after reading: add 'reviewed: ferpa' to the header)"), line)
-        for m in patterns.TAMU_EMAIL.finditer(line):
+        for m in patterns.ADDRESS.finditer(line):
+            if not institutional(m.group(1), domains):
+                continue
             if book.people is not None and m.group(0).lower() not in emails:
                 level = "warn" if "ferpa" in reviewed else "fail"
                 report.add(level, "ferpa-email", rel, i, "a university e-mail address of someone who is not in people.yaml", line)

@@ -409,9 +409,11 @@ def test_init_github_writes_parseable_files(book_dir):
     written = github.init_github(open_book(book_dir))
     assert ".github/ISSUE_TEMPLATE/new-entry.yml" in written
     assert len([w for w in written if w.startswith(".github/workflows/")]) == 6
+    assert ".github/CODEOWNERS" in written
     for w in written:
-        data = yaml.safe_load((book_dir / w).read_text())
-        assert data, w
+        if w.endswith(".yml"):
+            data = yaml.safe_load((book_dir / w).read_text())
+            assert data, w
     wf = yaml.safe_load((book_dir / ".github/workflows/logbook-checks.yml").read_text())
     assert "entry-checks" in wf["jobs"]
     for w in written:      # no ${{ … }} pasted into a shell script (injection)
@@ -576,3 +578,46 @@ def test_migrate_skips_the_frozen_note(tmp_path):
     book = open_book(init_repo(tmp_path / "book", EXAMPLE))
     r = migrate.migrate(src / "notes" / "log.typ", book, project="Example experiment")
     assert [p.stem.split("-aa-")[1] for p in r.entries] == ["real-work"]
+
+
+# ------------------------------------------------------------------------------ a new book ---
+def test_init_makes_a_book_that_checks_and_builds_and_refuses_to_overwrite(tmp_path):
+    from lablogbook import scaffold
+    lab = scaffold.Lab(title="Example Lab Notes", lab="Example Lab", institution="Example University",
+                       pi_name="A. Author", pi_handle="aa", pi_login="a-author", timezone="America/Chicago",
+                       email_domains=("example.edu",), project="Beamline")
+    scaffold.init(tmp_path / "book", lab)
+    book = open_book(tmp_path / "book")
+    assert book.config["privacy"]["email_domains"] == ["example.edu"] and book.config["timezone"] == "America/Chicago"
+    assert book.is_admin("a-author") and "Beamline" in book.projects
+    r = check.run(book, check.Options())
+    assert r.exit_code == 0, r.render()
+    text = "\n".join(p.read_text() for p in (tmp_path / "book").rglob("*") if p.is_file())
+    assert "TODO(" in (tmp_path / "book" / "docs" / "COMPLIANCE.md").read_text()
+    assert "Karthein" not in text and "tamu" not in text.lower()                      # nothing of this lab
+    with pytest.raises(scaffold.InitError):
+        scaffold.init(tmp_path / "book", lab)
+    with pytest.raises(scaffold.InitError):
+        scaffold.files(scaffold.Lab(pi_handle="Bad Handle"))
+
+
+def test_github_settings_script(tmp_path):
+    s = github.settings_script("example-org/Lab-Notes", "a-author", "lab-team")
+    assert '"integration_id": 15368' in s and '"actor_type": "RepositoryRole"' in s
+    assert "squash_merge_commit_message=PR_BODY" in s and "environments/$env" in s and "teams/lab-team" in s
+    assert s.index("# 6. The ruleset") < s.index("# 7. Pages") and "DELETE \"repos/$REPO/pages\"" in s
+    assert subprocess.run(["sh", "-n"], input=s, text=True).returncode == 0
+    with pytest.raises(ValueError):
+        github.settings_script("not a repo", "a-author")
+
+
+def test_init_github_writes_codeowners_once(tmp_path):
+    from lablogbook import scaffold
+    scaffold.init(tmp_path / "b", scaffold.Lab(pi_handle="aa", pi_login="a-author"))
+    book = open_book(tmp_path / "b")
+    github.init_github(book)
+    co = tmp_path / "b" / ".github" / "CODEOWNERS"
+    assert "* " in co.read_text() and "@a-author" in co.read_text() and "/entries/" in co.read_text()
+    co.write_text("* @someone-else\n")
+    github.init_github(open_book(tmp_path / "b"), force=True)
+    assert co.read_text() == "* @someone-else\n"                                      # never replaced

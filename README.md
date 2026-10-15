@@ -13,8 +13,9 @@ themes/        karthein.typ (Touying slides), karthein-poster.typ (A0), karthein
                speak-math.typ (spoken alt text for equations), palette.yaml, karthein.mplstyle,
                logos/ (placeholders: real marks live in each private repository)
 notes/         labnotes-template.typ (the lab notebook)
-logbook/       log-book entries as Markdown files: format, schema, the `logbook` checker (Python)
-docs/          STYLE.md, FIGURES_README.md, LOGBOOK_GUIDE.md, LOGBOOK_FORMAT.md, COURSES.md
+logbook/       the lab's log book as Markdown entries: format, checker, PDF and searchable view, the
+               `logbook` command line, GitHub form and workflows (docs/LOGBOOK_SETUP.md: a new book)
+docs/          STYLE.md, FIGURES_README.md, LOGBOOK_GUIDE.md, LOGBOOK_FORMAT.md, LOGBOOK_SETUP.md, COURSES.md
 matplotlib/    labfig.py (lab style; versioned figures with the information strip, record and code copy),
                KartheinLab-figure-template.ipynb (the Colab notebook)
 assets/        catalog.yaml, figures/, sources/: the one public example figure (BLS data), with the

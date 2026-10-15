@@ -9,7 +9,9 @@
     logbook migrate <logbook.typ>          a Typst log book into entries
     logbook month [--month YYYY-MM] --to DIR,  logbook digest
     logbook epics snapshot GROUP,  logbook epics restore ENTRY
-    logbook init-github,  logbook from-issue N,  logbook open-items,  logbook schema
+    logbook init DIR [--title ...]         a new central log book (lab/docs/LOGBOOK_SETUP.md)
+    logbook init-github,  logbook github-settings --repo O/N --admin LOGIN
+    logbook from-issue N,  logbook open-items,  logbook schema
 """
 
 from __future__ import annotations
@@ -222,6 +224,33 @@ def _cmd_epics(a) -> int:
         return 1
 
 
+def _cmd_init(a) -> int:
+    from . import scaffold
+    lab = scaffold.Lab(title=a.title, lab=a.lab, institution=a.institution, pi_name=a.pi_name,
+                       pi_handle=a.pi_handle, pi_login=a.pi_login, pi_email=a.pi_email, timezone=a.timezone,
+                       email_domains=tuple(a.email_domain or ["edu"]), project=a.project, repository=a.repository)
+    try:
+        written = scaffold.init(Path(a.dir), lab, force=a.force)
+    except scaffold.InitError as e:
+        print(f"logbook init: {e}", file=sys.stderr)
+        return 1
+    for w in written:
+        print(f"written: {w}")
+    print("next: lab/docs/LOGBOOK_SETUP.md (bring in lab/, settle every TODO in docs/COMPLIANCE.md, "
+          "then GitHub or GitLab)")
+    return 0
+
+
+def _cmd_github_settings(a) -> int:
+    from . import github
+    try:
+        print(github.settings_script(a.repo, a.admin, a.team), end="")
+    except ValueError as e:
+        print(f"logbook github-settings: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def _cmd_init_github(a) -> int:
     from . import github
     for rel in github.init_github(open_book(a.root), a.force):
@@ -332,6 +361,28 @@ def main(argv: list[str] | None = None) -> int:
     ep.add_argument("target", help="snapshot: the PV group; restore: the entry id")
     ep.add_argument("--out"); ep.add_argument("--label"); ep.add_argument("--group"); ep.add_argument("--yes", action="store_true")
     ep.set_defaults(func=_cmd_epics)
+
+    ini = sub.add_parser("init", help="a new central log book in DIR (settings, registries, wiki, policy starters)")
+    ini.add_argument("dir")
+    ini.add_argument("--title", default="Lab log book")
+    ini.add_argument("--lab", default="TODO(lab name)", help="the lab's name")
+    ini.add_argument("--institution", default="TODO(institution)")
+    ini.add_argument("--pi-name", default="TODO(PI name)")
+    ini.add_argument("--pi-handle", default="pi", help="lower case, used in file names (e.g. jk)")
+    ini.add_argument("--pi-login", help="the PI's GitHub (or GitLab) user name")
+    ini.add_argument("--pi-email")
+    ini.add_argument("--timezone", default="UTC", help="IANA name, e.g. America/Chicago")
+    ini.add_argument("--email-domain", action="append", help="institutional e-mail domain (repeatable; default: every .edu)")
+    ini.add_argument("--project", default="General", help="the first project")
+    ini.add_argument("--repository", help="owner/name on GitHub, once it exists")
+    ini.add_argument("--force", action="store_true", help="overwrite files that exist")
+    ini.set_defaults(func=_cmd_init)
+
+    gs = sub.add_parser("github-settings", help="print a script that sets a GitHub repository up for a central book")
+    gs.add_argument("--repo", required=True, help="owner/name")
+    gs.add_argument("--admin", required=True, help="the PI's GitHub user name (approves exports and snapshots)")
+    gs.add_argument("--team", help="an organisation team that writes (slug)")
+    gs.set_defaults(func=_cmd_github_settings)
 
     ig = sub.add_parser("init-github", help="write the issue form and the workflows into .github/")
     ig.add_argument("--force", action="store_true", help="also replace existing workflow files")

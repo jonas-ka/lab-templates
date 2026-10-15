@@ -368,3 +368,20 @@ def test_migrated_fields_do_not_excuse_a_late_entry_from_a_member(book_dir):
     mig = "migrated_from: src@0123456789ab\nlogged: \"2026-09-02T10:00:00-05:00\"\n"
     write_entry(book_dir, "2026-09-01-0900-aa-dodge", note("2026-09-01-0900-aa-dodge", mig))
     assert "migrated" in codes(pr(book_dir, "a-author-example"), "fail")
+
+
+def test_privacy_settings_choose_domains_and_id_pattern(book_dir):
+    import yaml as _yaml
+    cfg = book_dir / "logbook.yaml"
+    base = cfg.read_text()
+    text = "Asked jdoe@lab.example.gov and pat@mit.edu; badge 12345678 and run 123456789."
+    p = write_entry(book_dir, "2026-10-12-0900-aa-privacy", note("2026-10-12-0900-aa-privacy"), text + "\n")
+    c = codes(run(book_dir, p), "fail")                        # defaults: every .edu, nine digits
+    assert "ferpa-email" in c and "ferpa-uin" in c
+    cfg.write_text(base + "privacy:\n  email_domains: [example.gov]\n  id_pattern: '(?<!\\d)\\d{8}(?!\\d)'\n")
+    r = run(book_dir, p)
+    hits = [f for f in r.findings if f.code in ("ferpa-email", "ferpa-uin")]
+    assert {f.code for f in hits} == {"ferpa-email", "ferpa-uin"}
+    assert len([f for f in hits if f.code == "ferpa-email"]) == 1                    # example.gov, not mit.edu
+    cfg.write_text(base + "privacy:\n  email_domains: []\n  id_pattern: null\n")
+    assert not {"ferpa-email", "ferpa-uin"} & codes(run(book_dir, p))

@@ -30,7 +30,11 @@ DEFAULTS = {
     "late_days": 2,          # an entry dated earlier than this before it is logged needs `backfilled`
     "coauthor_days": 14,     # people who logged on the same project this recently are proposed
     "forbid_drive_ids": False,
-    "timezone": None,        # IANA name (America/Chicago): dates and times of new entries, also on a UTC runner  # True: Drive links in entries and wiki fail (figure files are never scanned)
+    "timezone": None,
+    # institutional addresses of people not in people.yaml are flagged; "edu" covers every .edu
+    # host, a book names its own (example.edu, lab.example.gov); id_pattern: student or staff ID numbers
+    # (a regular expression; null turns the rule off; default: nine digits standing alone)
+    "privacy": {"email_domains": ["edu"]},        # IANA name (America/Chicago): dates and times of new entries, also on a UTC runner  # True: Drive links in entries and wiki fail (figure files are never scanned)
 }
 
 

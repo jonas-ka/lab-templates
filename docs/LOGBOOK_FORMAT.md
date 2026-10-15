@@ -176,7 +176,7 @@ uv run --project lab/logbook logbook check --base origin/main --submitter <login
 | EPICS snapshots parse; PVs belong to the group | fail |
 | secrets (keys, tokens, private keys), home-folder paths | fail |
 | Google Drive links | note: fine while the file's sharing stays restricted; `forbid_drive_ids: true` in `logbook.yaml` makes them fail |
-| FERPA patterns: nine-digit numbers, SSN-shaped numbers, grades, transcripts of records, enrolment, someone named as a student who is not a member, a university address of a non-member | fail; `reviewed: ferpa` in the header after reading turns them into recorded warnings |
+| FERPA patterns: ID-shaped numbers (`privacy.id_pattern` in `logbook.yaml`; default nine digits), SSN-shaped numbers, grades, transcripts of records, enrolment, someone named as a student who is not a member, an institutional address of a non-member (`privacy.email_domains`; default every `.edu`) | fail; `reviewed: ferpa` in the header after reading turns them into recorded warnings |
 | health words | fail; `reviewed: health` likewise |
 | proprietary or export-control wording | warning |
 | PDF attachments and non-plot figures | **held** until `export_control_confirmed: true` |
@@ -240,6 +240,8 @@ Every command runs from any folder inside the log book or a repository connected
 | `migrate <log.typ>` | Converts a Typst log book (`#day`, `#note`, `#entry`) into entries in `--into <book>`: callouts become blocks, figures are copied as version 1 (with SVG and PNG made from PDFs), the background section becomes a wiki page, the date of each entry's first commit becomes `logged`. Nothing is committed; a report lists what needs a look. Needs `--extra migrate`. `--new-only` after an earlier migration of the same log book: only the entries the book does not have yet, and a list of those whose text changed since. The source's name in `migrated_from` comes from its `origin` remote. A final `#day` titled "This log book has moved" (the freeze) is never migrated. |
 | `epics snapshot <group>` / `epics restore <entry>` | Reads a PV group from `apparatus.yaml` into a snapshot file; shows the differences between a stored snapshot and the machine, and writes the stored values only after you confirm. Needs `--extra epics` and the lab's EPICS network. |
 | `init-github` | Writes the "New entry" issue form and the workflows into `.github/` (below). |
+| `init <dir>` | A new central log book: settings, registries, wiki skeleton, starter policy documents with `TODO`s, README, Makefile (LOGBOOK_SETUP.md). |
+| `github-settings --repo O/N --admin LOGIN` | Prints a script that sets a GitHub repository up for a central book (ruleset, merges, Actions, label, environments, private Pages). |
 | `check`, `build`, `open-items`, `schema` | As above. |
 
 ### Writing from a project repository
