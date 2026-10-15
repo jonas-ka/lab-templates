@@ -2,6 +2,12 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.30 (2026-10-15)
+
+- `scripts/sync_drive.py` compares each file with its **newest** copy on the Drive (the plain
+  name or a versioned one, `<name>-vYYYY.MM.N`), not only with the plain name, so an unchanged
+  file is no longer uploaded again under a new version name. Still create-only.
+
 ## v2026.10.29 (2026-10-15)
 
 - **The PDF with a task list builds on any machine:** pandoc writes `- [ ]` and `- [x]` as the
