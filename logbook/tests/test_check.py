@@ -385,3 +385,10 @@ def test_privacy_settings_choose_domains_and_id_pattern(book_dir):
     assert len([f for f in hits if f.code == "ferpa-email"]) == 1                    # example.gov, not mit.edu
     cfg.write_text(base + "privacy:\n  email_domains: []\n  id_pattern: null\n")
     assert not {"ferpa-email", "ferpa-uin"} & codes(run(book_dir, p))
+
+
+def test_unreadable_or_unclosed_blocks_fail_in_a_new_entry(book_dir):
+    p = write_entry(book_dir, "2026-10-12-0900-aa-blocks", note("2026-10-12-0900-aa-blocks"),
+                    "Text.\n\n::: todo {#todo-1\n- x\n:::\n\n::: finding\nNever closed.\n")
+    fails = [f for f in run(book_dir, p).findings if f.code == "block" and f.level == "fail"]
+    assert len(fails) == 2

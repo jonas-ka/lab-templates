@@ -124,6 +124,30 @@ def _strip_code(text: str) -> str:
     return _CODE_SPAN.sub("``", text)
 
 
+def block_problems(body: str, first_line: int) -> list[tuple[int, str]]:
+    """(line, message) for block lines that cannot be read (`::: todo {#todo-1` without its `}`)
+    and for blocks that are never closed."""
+    out, open_lines, in_code = [], [], False
+    for i, line in enumerate(body.splitlines(), start=first_line):
+        if line.startswith(("```", "~~~")):
+            in_code = not in_code
+            continue
+        if in_code or not line.startswith(":::"):
+            continue
+        if _DIV_CLOSE.match(line):
+            if open_lines:
+                open_lines.pop()
+            continue
+        m = _DIV_OPEN.match(line)
+        if m and (m.group("name") or m.group("attrs") is not None):
+            open_lines.append(i)
+        else:
+            out.append((i, "a block line that cannot be read (a block starts with a line like "
+                           "'::: todo {#todo-1}', braces closed, and ends with a line ':::')"))
+    out += [(i, "this block is never closed: end it with a line ':::'") for i in open_lines]
+    return out
+
+
 def parse_blocks(body: str, first_line: int) -> list[Block]:
     blocks, depth = [], 0
     in_code = False

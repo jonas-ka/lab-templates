@@ -23,7 +23,7 @@ NO_RESPONSE = "_No response_"
 FORM_LABELS = {  # issue-form label -> field
     "Title": "title", "Kind": "kind", "Project": "project", "Subproject": "subproject", "Co-authors": "coauthors",
     "Apparatus": "apparatus", "Tags": "tags", "Date of the work": "date", "Corrects": "corrects",
-    "Resolves": "resolves", "Entry": "body", "Figures and files": "files", "Figures, data and attachments": "files",
+    "Resolves": "resolves", "Entry": "body", "Open items": "todos", "Figures and files": "files", "Figures, data and attachments": "files",
     "Export control": "export_control",
 }
 # labels of earlier versions of the form, still read from issues filed with them
@@ -49,6 +49,8 @@ def issue_form(book: Book) -> dict:
             "Markdown. Blocks: a line `::: finding`, the text, a line `:::` (also decision, issue, todo); "
             "`::: todo {#todo-1}` makes an open item. Link entries as [[entry-id]].")},
          "validations": {"required": True}},
+        {"type": "textarea", "id": "todos", "attributes": {"label": "Open items", "description": (
+            "One per line. Each becomes an open item that a later entry can resolve.")}},
         {"type": "textarea", "id": "files", "attributes": {"label": "Figures and files", "description": (
             "Drag files here, one paragraph each, with `Caption: …` and `Alt: …` under a figure "
             "(a plot: its PDF and SVG) and `Source: …` under a data file.")}},
@@ -91,12 +93,31 @@ def parse_issue_body(text: str) -> dict:
 _LINK = re.compile(r"!?\[([^\]]*)\]\((https://[^)\s]+)\)|(https://github\.com/user-attachments/\S+)")
 
 
+FILE_LABELS = {"caption": "caption", "alt": "alt", "alt text": "alt", "source": "source"}
+
+
+def file_notes(text: str) -> tuple[dict, list[str]]:
+    """The files field's caption/alt/source written without a file of their own (they belong to an
+    image in the text), and the labels it did not understand ("Atl: …")."""
+    loose, unknown = {}, []
+    for para in re.split(r"\n\s*\n", text or ""):
+        if _LINK.search(para):
+            continue
+        for m in re.finditer(r"^\s*([A-Za-z][A-Za-z ]{0,20}?)\s*:\s*(.+)$", para, re.M):
+            key = FILE_LABELS.get(m.group(1).strip().lower())
+            if key:
+                loose.setdefault(key, m.group(2).strip())
+            else:
+                unknown.append(m.group(1).strip())
+    return loose, unknown
+
+
 def parse_files(text: str) -> list[dict]:
     """Paragraphs of the files field: [{url, name, caption, alt, source}]."""
     items = []
     for para in re.split(r"\n\s*\n", text or ""):
         def field(k):
-            mm = re.search(rf"^\s*{k}\s*:\s*(.+)$", para, re.M | re.I)
+            mm = re.search(rf"^\s*{'(?:alt|alt text)' if k == 'alt' else k}\s*:\s*(.+)$", para, re.M | re.I)
             return mm.group(1).strip() if mm else None
         m = _LINK.search(para)
         if not m:   # "Caption: …" in a paragraph of its own belongs to the file above it
@@ -110,11 +131,41 @@ def parse_files(text: str) -> list[dict]:
     return items
 
 
+MEDIA_EXT = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/svg+xml": ".svg",
+             "image/webp": ".webp", "application/pdf": ".pdf", "text/csv": ".csv"}
+
+
 def download(url: str, dest: Path, token: str | None) -> Path:
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"} if token else {})
     with urllib.request.urlopen(req, timeout=60) as r:
-        dest.write_bytes(r.read())
+        data = r.read()
+        kind = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+    if not dest.suffix and kind in MEDIA_EXT:   # attachment links carry no file name
+        dest = dest.with_suffix(MEDIA_EXT[kind])
+    dest.write_bytes(data)
     return dest
+
+
+_BODY_IMAGE = re.compile(r'<img\b[^>]*?\bsrc="(https://github\.com/user-attachments/[^"]+)"[^>]*>|'
+                         r"!\[([^\]]*)\]\((https://github\.com/user-attachments/[^)\s]+)\)")
+
+
+def body_images(body: str, loose: dict) -> tuple[str, list[dict]]:
+    """Images dragged into the entry's text: taken out of the text and returned as files, named
+    after their caption; the files field's loose caption, alt and source go with the first one."""
+    items = []
+    def take(m):
+        url = m.group(1) or m.group(3)
+        alt = re.search(r'\balt="([^"]*)"', m.group(0)) if m.group(1) else None
+        n = len(items) + 1
+        meta = loose if n == 1 else {}
+        cap = meta.get("caption")
+        stem = re.sub(r"[^a-z0-9]+", "-", (cap or f"figure {n}").lower()).strip("-")[:40] or f"figure-{n}"
+        items.append({"url": url, "name": f"fig-{stem}", "caption": cap,
+                      "alt": meta.get("alt") or (alt.group(1) if alt and alt.group(1) not in ("", "Image") else None)
+                      or (m.group(2) or None), "source": meta.get("source")})
+        return ""
+    return _BODY_IMAGE.sub(take, body), items
 
 
 def draft_from_issue(book: Book, answers: dict, files: list[dict], workdir: Path, token: str | None,
@@ -133,10 +184,22 @@ def draft_from_issue(book: Book, answers: dict, files: list[dict], workdir: Path
         h["authors"] = re.findall(r"\((\w+)\)", answers["coauthors"])
     if answers.get("apparatus"):
         h["apparatus"] = re.findall(r"\(([\w-]+)\)", answers["apparatus"])
+    body = answers.get("body", "")
+    loose, _unknown = file_notes(answers.get("files", ""))
+    body, from_text = body_images(body, loose if not files else {})
+    files = list(files) + from_text
+    todos = [x.strip(" -*\t") for x in (answers.get("todos") or "").splitlines() if x.strip(" -*\t")]
+    taken = set(re.findall(r"#(todo-\d+)", body))
+    k = 1
+    for item in todos:
+        while f"todo-{k}" in taken:
+            k += 1
+        taken.add(f"todo-{k}")
+        body = body.rstrip() + f"\n\n::: todo {{#todo-{k}}}\n- {item}\n:::\n"
     confirmed = "[x]" in answers.get("export_control", "").lower()
     by_stem: dict[str, list[dict]] = {}
     for f in files:
-        local = fetch(f["url"], workdir / re.sub(r"[^\w.-]", "_", f["name"]), token)
+        local = fetch(f["url"], workdir / re.sub(r"[^\w.-]", "_", f["name"]), token) or workdir / f["name"]
         f["local"] = local
         by_stem.setdefault(local.stem, []).append(f)
     for stem, group in by_stem.items():
@@ -160,7 +223,7 @@ def draft_from_issue(book: Book, answers: dict, files: list[dict], workdir: Path
                     if confirmed:
                         a["export_control_confirmed"] = True
                     h.setdefault("attachments", []).append(a)
-    return h, answers.get("body", "")
+    return h, body
 
 
 # ------------------------------------------------------------------------------ init-github --
@@ -200,6 +263,23 @@ def _gh(*args: str, check: bool = True) -> str:
     return connect.run(["gh", *args], check=check)
 
 
+def rebuild_site_after_merge(url: str, repo: str, out, tries: int | None = None, pause: float = 10) -> bool:
+    """A merge by the workflow's own token starts no other workflow, so the site would not rebuild
+    for an entry from the form: wait for the merge, then start the site's workflow (a
+    workflow_dispatch is the one event such a token may start). True when it was started."""
+    import time
+    for _ in range(tries if tries is not None else int(os.environ.get("LOGBOOK_MERGE_WAIT", "36"))):
+        state = _gh("pr", "view", url, "--repo", repo, "--json", "state", "-q", ".state", check=False).strip()
+        if state == "MERGED":
+            _gh("workflow", "run", "logbook-site.yml", "--repo", repo, "--ref", "main", check=False)
+            print("merged; site build started", file=out)
+            return True
+        if state == "CLOSED":
+            return False
+        time.sleep(pause)
+    return False
+
+
 def from_issue(book: Book, number: int, submitter: str, repo: str, out) -> int:
     """Run inside a checkout of the central log book (the entry-from-issue workflow)."""
     from . import check, connect, newentry
@@ -215,6 +295,9 @@ def from_issue(book: Book, number: int, submitter: str, repo: str, out) -> int:
         print(f"issue #{number} is already done", file=out)
         return 0
     answers = parse_issue_body(issue.get("body", ""))
+    _loose, unknown = file_notes(answers.get("files", ""))
+    note = ("\n\nNot understood in \"Figures and files\": " + ", ".join(f"`{u}:`" for u in unknown) +
+            " (the labels are Caption, Alt and Source).") if unknown else ""
     if not answers.get("title"):   # the form uses the issue's own title (since v2026.10.25)
         answers["title"] = re.sub(r"^\s*(new\s+)?entry:\s*", "", issue.get("title", ""), flags=re.I).strip()
     person = book.person_by_login(submitter)
@@ -245,7 +328,7 @@ def from_issue(book: Book, number: int, submitter: str, repo: str, out) -> int:
     report = check.run(open_book(root), check.Options(base="origin/main", submitter=submitter, ci=True))
     if report.exit_code:
         tell("The entry did not pass the checks. Edit the issue to fix it; the form is read again.\n\n```\n"
-             + report.render(ci=True) + "\n```")
+             + report.render(ci=True) + "\n```" + note)
         print(report.render(ci=True), file=out)
         return report.exit_code
     connect.run(["git", "-C", str(root), "push", "-q", "-f", "origin", branch])
@@ -260,7 +343,8 @@ def from_issue(book: Book, number: int, submitter: str, repo: str, out) -> int:
     _gh("pr", "merge", "--repo", repo, "--auto", "--squash", url, check=False)
     # A merge by the workflow's token does not apply "Closes #N", so the issue is closed here.
     _gh("issue", "close", str(number), "--repo", repo, "--comment",
-        f"Entry `{path.stem}` passed the checks: {url} (it merges itself).", check=False)
+        f"Entry `{path.stem}` passed the checks: {url} (it merges itself)." + note, check=False)
+    rebuild_site_after_merge(url, repo, out)
     print(f"pull request: {url}", file=out)
     return 0
 

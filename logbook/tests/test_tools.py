@@ -621,3 +621,49 @@ def test_init_github_writes_codeowners_once(tmp_path):
     co.write_text("* @someone-else\n")
     github.init_github(open_book(tmp_path / "b"), force=True)
     assert co.read_text() == "* @someone-else\n"                                      # never replaced
+
+
+def test_pull_copies_wiki_figures_and_keeps_big_files_out_of_git(tmp_path, monkeypatch):
+    project, clone = _connected_project(tmp_path, monkeypatch, "PRIVATE")
+    page = clone / "wiki" / "projects" / "example-experiment.md"
+    (page.parent / "figures").mkdir(parents=True, exist_ok=True)
+    shutil.copy(FIG.with_suffix(".png"), page.parent / "figures" / "fig-setup-v1.png")
+    page.write_text(page.read_text() + "\n![The set-up](figures/fig-setup-v1.png)\n")
+    git(clone, "add", "-A")
+    git(clone, "commit", "-q", "-m", "a wiki figure")
+    central = connect.local_config(project)[1]["central"]
+    dest = projectcopy.pull(project, central, update=False, today="2026-10-06")
+    assert (dest / "wiki/projects/figures/fig-setup-v1.png").exists()
+    assert "logbook.html" in (dest / ".gitignore").read_text() and "logbook.pdf" in (dest / ".gitignore").read_text()
+
+
+def test_form_open_items_images_in_the_text_and_loose_captions(tmp_path):
+    book = open_book(EXAMPLE)
+    answers = {"title": "T", "project": "Example experiment", "kind": "note",
+               "body": 'Text.\n\n<img width="10" alt="Image" src="https://github.com/user-attachments/assets/abc" />\n\nMore.',
+               "files": "Caption: A sketch of the set-up.\nAtl: A box.\nSource: Drawn by hand.",
+               "todos": "Check the cable\n- Order a new seal\n"}
+    loose, unknown = github.file_notes(answers["files"])
+    assert loose == {"caption": "A sketch of the set-up.", "source": "Drawn by hand."} and unknown == ["Atl"]
+    seen = []
+    def fake(url, dest, token):
+        seen.append(url)
+        out = dest.with_suffix(".png")
+        out.write_bytes(FIG.with_suffix(".png").read_bytes())
+        return out
+    header, body = github.draft_from_issue(book, answers, [], tmp_path, None, fetch=fake)
+    assert seen == ["https://github.com/user-attachments/assets/abc"] and "<img" not in body
+    fig = header["figures"][0]
+    assert fig["caption"] == "A sketch of the set-up." and fig["file"].endswith("fig-a-sketch-of-the-set-up.png")
+    assert "::: todo {#todo-1}\n- Check the cable\n:::" in body and "::: todo {#todo-2}\n- Order a new seal\n:::" in body
+    assert github.file_notes("Alt text: fine\nCaption: ok")[1] == []
+
+
+def test_site_rebuilt_after_the_form_entry_merges(monkeypatch):
+    calls, states = [], iter(["OPEN", "MERGED"])
+    def fake_gh(*args, check=True):
+        calls.append(args)
+        return next(states) if args[:2] == ("pr", "view") else ""
+    monkeypatch.setattr(github, "_gh", fake_gh)
+    assert github.rebuild_site_after_merge("https://x/pull/1", "o/r", io.StringIO(), tries=3, pause=0)
+    assert ("workflow", "run", "logbook-site.yml", "--repo", "o/r", "--ref", "main") in calls

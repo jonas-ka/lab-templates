@@ -294,6 +294,9 @@ def check_entry(book: Book, e: Entry, st: state.State, report: Report, opts: Opt
                        f"#{anchor} of '{tid}' is already resolved by {', '.join(st.resolved_by[target])}")
 
     # --- blocks ----------------------------------------------------------------------------------
+    for line_no, msg in entry_mod.block_problems(e.body, e.body_line):
+        # a new entry is fixed before it goes in; one already in the book cannot change any more
+        report.add("fail" if new else "warn", "block", rel, line_no, msg)
     seen = {}
     for b in e.blocks:
         if b.name not in CALLOUTS:

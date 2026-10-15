@@ -2,6 +2,28 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.28 (2026-10-15)
+
+Found in the pilot:
+
+- **Entries from the form now appear on the site:** a merge by the workflow's own token starts
+  no other workflow, so the site never rebuilt for them. The form's workflow waits for its entry
+  to merge and starts the site's build; the site also rebuilds once a day. **Run
+  `logbook init-github --force`.**
+- **The form:** an "Open items" field (one per line, each becomes a `todo` a later entry can
+  resolve, no block syntax needed); images dragged into the text are downloaded and stored as
+  figures (before, they stayed links to GitHub's attachment store, which the site cannot load);
+  a caption, alt text and source written in the files field without a file go with them;
+  `Alt text:` is read as `Alt:`; labels the form does not understand ("Atl:") are reported on
+  the issue; downloads get their file extension from their media type.
+- **`logbook check`:** a block line that cannot be read (`::: todo {#todo-1` without its `}`)
+  or a block never closed fails for a new entry (a warning for one already in the book).
+- **`logbook pull`:** the figures the copied wiki pages show are copied too (the PDF and the
+  view failed with "No such file or directory"); the copy's `.gitignore` keeps its PDF and
+  one-file view out of git.
+- `docs/LOGBOOK_SETUP.md`: troubleshooting (a `.venv` in an iCloud-synced folder with Python
+  3.14: `UV_NO_EDITABLE=1`, or keep repositories out of iCloud).
+
 ## v2026.10.27 (2026-10-15)
 
 A central log book from scratch, for any lab (`docs/LOGBOOK_SETUP.md`):

@@ -264,8 +264,9 @@ not touched. `--no-submit` keeps the branch local; `--dry-run` only checks.
 
 `logbook pull` writes `logbook/` in the project repository: the entries of its projects with
 their files, the wiki pages and references they need, the PDF, the one-file HTML view,
-`SUMMARY.md` (read this first) and `GENERATED.md`. The copy is generated and replaced by the next
-pull; never edit it. It refuses a public repository always, an internal one unless
+`SUMMARY.md` (read this first) and `GENERATED.md`, with the figures its wiki pages show. The copy
+is generated and replaced by the next pull; never edit it. Its own `.gitignore` keeps the PDF and
+the one-file view (large, rebuilt by every pull) out of git; commit the rest. It refuses a public repository always, an internal one unless
 `projects.yaml` gives the project `copy_internal_until: <date>` in the future, and any repository
 whose visibility it cannot find out.
 
@@ -278,8 +279,8 @@ from them).
 
 | File | When | What |
 |---|---|---|
-| `ISSUE_TEMPLATE/new-entry.yml` | | The "New entry" form: the issue's title is the entry's title; then project, kind, the text, files and the export-control confirmation; subproject, apparatus, co-authors, tags, date, corrects and resolves under "Optional". The view's links fill fields in: "New entry here" on a project or apparatus page, "Correct" on an entry, "Resolve" on an open item. |
-| `workflows/logbook-entry-from-issue.yml` | a form is submitted | Turns the form into an entry committed as its author, runs the checker, opens a pull request that merges itself, and reports back on the issue. A pull request opened by a workflow starts no other workflow, so this one runs the checker itself and posts the required check `entry-checks`. |
+| `ISSUE_TEMPLATE/new-entry.yml` | | The "New entry" form: the issue's title is the entry's title; then project, kind, the text, open items (one per line, each a resolvable `todo`), files and the export-control confirmation; images dragged into the text are stored as figures, and a caption, alt text and source written in the files field without a file of their own go with them; labels the form does not understand are reported on the issue; subproject, apparatus, co-authors, tags, date, corrects and resolves under "Optional". The view's links fill fields in: "New entry here" on a project or apparatus page, "Correct" on an entry, "Resolve" on an open item. |
+| `workflows/logbook-entry-from-issue.yml` | a form is submitted | Turns the form into an entry committed as its author, runs the checker, opens a pull request that merges itself, and reports back on the issue. A pull request opened by a workflow starts no other workflow, so this one runs the checker itself and posts the required check `entry-checks`. After the merge it starts the site's build (a merge by the workflow's token starts no other workflow). |
 | `workflows/logbook-checks.yml` | every pull request, every push to main | The check `entry-checks` that the ruleset requires. |
 | `workflows/logbook-site.yml` | every push to main | Builds the HTML view and the PDF and publishes them with GitHub Pages. |
 | `workflows/logbook-digest.yml` | Mondays | The digest as an issue "Week ending …". |

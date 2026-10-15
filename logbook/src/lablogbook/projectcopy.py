@@ -30,6 +30,20 @@ class CopyError(RuntimeError):
     pass
 
 
+_IMG_MD = __import__("re").compile(r"!\[[^\]]*\]\(\s*<?([^)\s>]+)>?")
+_IMG_HTML = __import__("re").compile(r"<img\b[^>]*?\bsrc=\"([^\"]+)\"")
+
+
+def _local_images(text: str) -> list[str]:
+    """Relative image paths a Markdown page uses (`![…](figures/x.png)`, `<img src="…">`)."""
+    out = []
+    for m in list(_IMG_MD.finditer(text)) + list(_IMG_HTML.finditer(text)):
+        path = m.group(1)
+        if "://" not in path and not path.startswith(("/", "#", "data:")) and ".." not in path.split("/"):
+            out.append(path)
+    return list(dict.fromkeys(out))
+
+
 def _guard(here: Path, dest: Path, central_book, projects: list[str], today: str) -> None:
     if dest.resolve().is_relative_to((here / "lab").resolve()):
         raise CopyError("the copy never goes inside lab/ (the public templates are generated from it)")
@@ -102,6 +116,16 @@ def pull(here: Path, central: dict, update: bool = True, today: str | None = Non
             d = dest / cfg["wiki"] / f"{page}.md"
             d.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, d)
+            for rel in _local_images(src.read_text(encoding="utf-8")):   # the page's own figures
+                s = (src.parent / rel).resolve()
+                if s.is_file() and s.is_relative_to(book.wiki_dir.resolve()):
+                    target = d.parent / rel
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(s, target)
+                    for ext in (".svg", ".png", ".pdf"):   # a figure's siblings, as for entries
+                        sib = s.with_suffix(ext)
+                        if sib.exists() and sib != s:
+                            shutil.copy2(sib, target.with_suffix(ext))
     if book.bib_path.exists():
         d = dest / cfg["bibliography"]
         d.parent.mkdir(parents=True, exist_ok=True)
@@ -114,6 +138,9 @@ def pull(here: Path, central: dict, update: bool = True, today: str | None = Non
         "New entries are written to the central log book (`logbook new --from draft.md`), never here; "
         "they appear in this copy with the next pull.\n", encoding="utf-8")
     (dest / "SUMMARY.md").write_text(summary(copy, projects, central, sha, today), encoding="utf-8")
+    # the PDF and the one-file view are rebuilt by every pull and are large: they stay out of git
+    (dest / ".gitignore").write_text("# rebuilt by every `logbook pull`; never committed\nlogbook.pdf\nlogbook.html\n",
+                                     encoding="utf-8")
     try:
         pdf.build(copy, dest / "logbook.pdf", keep_source=False)
         htmlview.build(copy, dest / "logbook.html", single=True)

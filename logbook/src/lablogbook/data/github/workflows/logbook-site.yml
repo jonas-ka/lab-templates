@@ -5,7 +5,9 @@ name: site
 on:
   push:
     branches: [main]
-  workflow_dispatch:
+  workflow_dispatch:      # also started by the form's workflow after its entry merges
+  schedule:
+    - cron: "17 6 * * *" # once a day, in case a merge started no build
 permissions:
   contents: read
   pages: write

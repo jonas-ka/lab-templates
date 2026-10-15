@@ -8,6 +8,7 @@ on:
     types: [opened, edited, labeled]
 concurrency: {group: "entry-from-issue-${{ github.event.issue.number }}", cancel-in-progress: false}   # one run per issue at a time
 permissions:
+  actions: write       # starts the site's workflow after the merge
   contents: write
   issues: write
   pull-requests: write

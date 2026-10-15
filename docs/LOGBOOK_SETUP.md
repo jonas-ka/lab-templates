@@ -115,6 +115,19 @@ the pipeline succeeds, squash merges, Pages limited to project members, and `git
 `people.yaml` holding each person's GitLab user name. Entries are written with `logbook new`
 in a clone and submitted as a merge request.
 
+## Troubleshooting
+
+- **`ModuleNotFoundError: lablogbook` on a Mac, with Python 3.14, in a repository inside an
+  iCloud-synced folder** (`~/Documents`, `~/Desktop`): iCloud marks the `.pth` files of the
+  `.venv` as hidden, and Python 3.14 skips hidden `.pth` files, so the tools, installed in
+  editable mode, cannot be imported. Best: keep repositories out of iCloud-synced folders (git
+  and iCloud also disagree about `.git`). Otherwise install the tools normally:
+  `export UV_NO_EDITABLE=1` in the shell's profile (or `uv run --no-editable …`).
+- **An entry from the form merged, but the site does not show it:** a merge done by a
+  workflow's own token starts no other workflow; since v2026.10.28 the form's workflow starts
+  the site's build itself after the merge, and the site also rebuilds once a day. Run
+  `logbook init-github --force` in a book set up before that.
+
 ## Later
 
 - **Project repositories write into the book**: `central:` in their own `logbook.yaml`
