@@ -667,3 +667,29 @@ def test_site_rebuilt_after_the_form_entry_merges(monkeypatch):
     monkeypatch.setattr(github, "_gh", fake_gh)
     assert github.rebuild_site_after_merge("https://x/pull/1", "o/r", io.StringIO(), tries=3, pause=0)
     assert ("workflow", "run", "logbook-site.yml", "--repo", "o/r", "--ref", "main") in calls
+
+
+def test_deliver_copies_each_attested_month_once(tmp_path, monkeypatch):
+    from lablogbook import deliver
+    calls = []
+
+    def fake(cmd, cwd=None, check=True, env=None):
+        calls.append(cmd)
+        if cmd[:3] == ["gh", "release", "list"]:
+            return json.dumps([{"tagName": "snapshot/2026-11", "isDraft": False},
+                               {"tagName": "snapshot/2026-12", "isDraft": True},
+                               {"tagName": "v1", "isDraft": False}])
+        if cmd[:3] == ["gh", "release", "download"]:
+            d = Path(cmd[cmd.index("--dir") + 1])
+            (d / cmd[cmd.index("--pattern") + 1]).write_bytes(b"%PDF-1.7")
+            return ""
+        raise AssertionError(cmd)
+
+    monkeypatch.setattr(connect, "run", fake)
+    to = tmp_path / "Drive" / "Lab"
+    assert deliver.deliver("org/Notes", to) == [to / "Logbook-2026-11.pdf"]
+    assert (to / "Logbook-2026-11.pdf").read_bytes() == b"%PDF-1.7" and not list(to.glob(".*part"))
+    assert deliver.deliver("org/Notes", to) == []          # already there: nothing downloaded
+    assert sum(c[:3] == ["gh", "release", "download"] for c in calls) == 1
+    plist = deliver.launch_agent("org.example.logbook", tmp_path / "book", to)
+    assert "<string>deliver</string>" in plist and str(to) in plist and "<key>Hour</key><integer>9</integer>" in plist

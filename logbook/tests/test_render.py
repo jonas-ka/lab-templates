@@ -132,6 +132,18 @@ def test_math_gets_alt_text_under_pdf_ua(tmp_path):
     assert 'alt: "m"' in src and "math.equation(block: true" in src
 
 
+def test_task_list_boxes_are_drawn_under_pdf_ua(tmp_path):
+    book = tmp_path / "book"
+    shutil.copytree(EXAMPLE, book)
+    (book / "entries" / "2026" / "2026-10-07-0900-aa-checklist.md").write_text(
+        "---\ndate: 2026-10-07\ntime: \"09:00\"\nauthors: [aa]\nkind: note\nproject: Example experiment\n"
+        "title: Checklist\n---\n\n- [ ] left to do\n- [x] done\n")
+    out = book / "build" / "out.pdf"
+    pdf.build(open_book(book), out)            # no embedded font has U+2610 and U+2612
+    src = out.with_suffix(".typ").read_text()
+    assert "\u2610" not in src and "\u2612" not in src and src.count("#box(width: 0.75em") == 2
+
+
 def test_captions_are_plain_text():
     assert render.plain("The **pinhole**, *very* narrow (`fig-x`); see [the doc](https://x.y); 2*3*4") == \
         "The pinhole, very narrow (fig-x); see the doc; 2*3*4"

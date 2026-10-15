@@ -163,7 +163,19 @@ local function Math(el)
     tostring(el.mathtype == "DisplayMath") .. ", alt: " .. tstr(el.text) .. ", e.body) }")
 end
 
+-- Task lists (`- [ ]`, `- [x]`): pandoc writes the boxes as the characters U+2610 and U+2612,
+-- which none of the template's embedded fonts has (PDF/UA refuses the fallback font), so the
+-- boxes are drawn.
+local BOX = "box(width: 0.75em, height: 0.75em, baseline: 0.1em, stroke: 0.6pt + luma(90)"
+local function Str(el)
+  if not typst then return nil end
+  if el.text == "\u{2610}" then return pandoc.RawInline("typst", "#" .. BOX .. ")") end
+  if el.text == "\u{2612}" then
+    return pandoc.RawInline("typst", "#" .. BOX .. ", inset: 0.12em, box(width: 100%, height: 100%, fill: luma(90)))")
+  end
+end
+
 return {
-  {Math = Math},
+  {Math = Math, Str = Str},
   {Div = Div, Link = Link, Cite = Cite, traverse = "topdown"},
 }

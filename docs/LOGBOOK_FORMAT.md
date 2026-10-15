@@ -284,7 +284,7 @@ from them).
 | `workflows/logbook-checks.yml` | every pull request, every push to main | The check `entry-checks` that the ruleset requires. |
 | `workflows/logbook-site.yml` | every push to main | Builds the HTML view and the PDF and publishes them with GitHub Pages. |
 | `workflows/logbook-digest.yml` | Mondays | The digest as an issue "Week ending …". |
-| `workflows/logbook-monthly.yml` | the 1st of each month | The previous month's PDF, the whole book and the sources as a release `snapshot/YYYY-MM`; waits for approval in the environment `attest`. |
+| `workflows/logbook-monthly.yml` | the 1st of each month | The previous month's PDF, the whole book and the sources as a release `snapshot/YYYY-MM`; waits for approval in the environment `attest`. `logbook deliver` copies these PDFs into a folder (a synced Drive folder, say). |
 | `workflows/logbook-export.yml` | on request (Actions, "Run workflow") | An export; waits for approval in the environment `export` and logs the request on the issue "Exports". |
 
 The workflows run on GitHub's machines, whose clock is UTC: set `timezone:` in `logbook.yaml`

@@ -8,6 +8,7 @@
     logbook pull                           the per-project copy of the central log book
     logbook migrate <logbook.typ>          a Typst log book into entries
     logbook month [--month YYYY-MM] --to DIR,  logbook digest
+    logbook deliver --to DIR               the attested monthly PDFs into a folder (e.g. Drive)
     logbook epics snapshot GROUP,  logbook epics restore ENTRY
     logbook init DIR [--title ...]         a new central log book (lab/docs/LOGBOOK_SETUP.md)
     logbook init-github,  logbook github-settings --repo O/N --admin LOGIN
@@ -202,6 +203,27 @@ def _cmd_month(a) -> int:
     return 0
 
 
+def _cmd_deliver(a) -> int:
+    from . import connect, deliver
+    book = open_book(a.root)
+    to = Path(os.path.expanduser(a.to)).resolve()
+    if a.launch_agent:
+        print(deliver.launch_agent(a.launch_agent, book.root.resolve(), to, a.hour, a.full), end="")
+        return 0
+    repo = a.repo or deliver.repository(book)
+    if not repo:
+        print("logbook deliver: no repository (--repo, or site.repository in logbook.yaml)", file=sys.stderr)
+        return 1
+    try:
+        written = deliver.deliver(repo, to, a.full)
+    except connect.ConnectError as e:
+        print(f"logbook deliver: {e}", file=sys.stderr)
+        return 1
+    for f in written:
+        print(f"{book.now():%Y-%m-%d %H:%M} {f}")
+    return 0
+
+
 def _cmd_digest(a) -> int:
     from . import reports
     print(reports.digest(open_book(a.root), a.today, a.days), end="")
@@ -351,6 +373,14 @@ def main(argv: list[str] | None = None) -> int:
     mo = sub.add_parser("month", help="the PDF of the entries logged in a month")
     mo.add_argument("--month", help="YYYY-MM (default: last month)"); mo.add_argument("--to", default="build")
     mo.set_defaults(func=_cmd_month)
+
+    dv = sub.add_parser("deliver", help="copy the attested monthly PDFs (snapshot releases) into a folder, e.g. on Drive")
+    dv.add_argument("--to", required=True, help="the folder (a synced Drive folder, say)")
+    dv.add_argument("--repo", help="owner/name (default: site.repository in logbook.yaml)")
+    dv.add_argument("--full", action="store_true", help="also the whole book as of each month")
+    dv.add_argument("--launch-agent", metavar="LABEL", help="print a macOS LaunchAgent that runs this daily, instead")
+    dv.add_argument("--hour", type=int, default=9, help="for --launch-agent (default 9)")
+    dv.set_defaults(func=_cmd_deliver)
 
     d = sub.add_parser("digest", help="the weekly summary (Markdown)")
     d.add_argument("--today"); d.add_argument("--days", type=int, default=7)

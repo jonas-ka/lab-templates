@@ -45,8 +45,8 @@ mkdir lab-notes && cd lab-notes && git init -b main
 git commit --allow-empty -m "A new log book"
 # the tools and templates, as a git subtree in lab/, pinned to a tag (the newest: CHANGELOG.md)
 git remote add lab-templates https://github.com/jonas-ka/lab-templates.git
-git fetch lab-templates tag v2026.10.27
-git subtree add --prefix lab lab-templates v2026.10.27 --squash -m "lab-templates v2026.10.27 in lab/"
+git fetch lab-templates tag v2026.10.29
+git subtree add --prefix lab lab-templates v2026.10.29 --squash -m "lab-templates v2026.10.29 in lab/"
 # settings, registries, wiki skeleton, policy starters, README, Makefile
 uv run --project lab/logbook logbook init . --title "Example Lab Notes" --lab "Example Lab" \
     --institution "Example University" --pi-name "A. Author" --pi-handle aa --pi-login a-author \
@@ -136,6 +136,10 @@ in a clone and submitted as a merge request.
   request per log book. Entries written in the old book after that come over with
   `--new-only`. Then freeze the old book: a last `#day` titled "This log book has moved" (never
   migrated), and the project repository's `logbook.yaml` and instructions pointing at the book.
+- **The monthly PDFs in a synced folder** (Google Drive, OneDrive, …): `logbook deliver --to
+  <folder>` copies each attested month from the snapshot releases that is not there yet;
+  `logbook deliver --to <folder> --launch-agent org.example.logbook` prints a macOS LaunchAgent
+  that runs it daily (read it, save it in `~/Library/LaunchAgents/`, `launchctl bootstrap`).
 - **Updating `lab/` with a squash merge**: git-subtree finds the last update from its commit
   message, which a squash merge replaces by the pull request's description. Put the two lines
   of the update commit (`git-subtree-dir: lab`, `git-subtree-split: <sha>`) in the description,

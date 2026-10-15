@@ -2,6 +2,15 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.29 (2026-10-15)
+
+- **The PDF with a task list builds on any machine:** pandoc writes `- [ ]` and `- [x]` as the
+  characters ☐ and ☒, which none of the template's fonts has, and PDF/UA refuses the fallback
+  font, so the PDF failed wherever no system font has them (a Mac). The boxes are now drawn.
+- **`logbook deliver --to <folder>`:** copies each attested monthly PDF (the `snapshot/YYYY-MM`
+  releases; `--full` also the whole book) that is not yet in the folder, e.g. a synced Drive
+  folder; `--launch-agent <label>` prints a macOS LaunchAgent that runs it daily. Uses `gh`.
+
 ## v2026.10.28 (2026-10-15)
 
 Found in the pilot:
