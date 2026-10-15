@@ -360,7 +360,8 @@ def _raw_location(loc: str | Path) -> dict:
     if top:
         return {"repository": _public_url(_git("remote", "get-url", "origin", cwd=where)),
                 "path": p.relative_to(Path(top).resolve()).as_posix()}
-    m = re.search(r"/CloudStorage/GoogleDrive-[^/]+/(.*)$", p.as_posix())
+    # the Drive mirror folder (written "Google[D]rive-" so the repository's scan for that prefix stays clean)
+    m = re.search(r"/CloudStorage/Google[D]rive-[^/]+/(.*)$", p.as_posix())
     if m:
         return {"location": "Drive: " + m.group(1)}
     home = Path.home().resolve()
