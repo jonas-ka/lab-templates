@@ -781,6 +781,8 @@ def test_an_order_lists_its_items_and_each_stays_open_until_it_arrives(tmp_path)
     assert rows[0]["arrived_on"] == "2026-10-05" and rows[0]["arrived_by"] == ["aa"]
     out = subprocess.run([sys.executable, "-m", "lablogbook.cli", "--root", str(d), "orders", "--open"], capture_output=True, text=True)
     assert "BNC cable" in out.stdout and "SHV" not in out.stdout and "1 item(s), 1 open" in out.stdout
+    view = (Path(__file__).resolve().parents[1] / "src/lablogbook/data/view/view.js").read_text()
+    assert 'data-act="pu-csv"' in view and "function purchasesCsv" in view   # the page's download
 
 
 def test_an_order_from_a_script_through_the_form(tmp_path):

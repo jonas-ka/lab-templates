@@ -121,7 +121,7 @@ the entry was written. The body holds the table of items and one open item per i
 waiting, `::: todo {#item-<n> priority=low}`; `logbook.yaml` `orders: {currency: "$"}` sets the
 symbol. An item has arrived once a later entry resolves it ("Resolve" on the item, or "All
 arrived" for everything still open in an order). The view's **Purchases** page lists every item
-of every order, newest order first, with its status; `logbook orders [--open] [--json]` prints
+of every order, newest order first, with its status ("Download CSV" saves the rows shown); `logbook orders [--open] [--json]` prints
 the same. The site's workflow publishes it as `orders.json` on the branch `logbook-status`, for
 tools outside GitHub (a purchasing sheet that ticks off what arrived). A script can submit an
 order through the form: an issue whose body has the form's sections plus `### Order` and

@@ -2,6 +2,12 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.35 (2026-10-16)
+
+- **Purchases page: "Download CSV"** saves the items shown (after the filter and "Open only")
+  as a table for Excel or Google Sheets: order, item, quantity, unit cost, total, ordered date,
+  status, when and in which entry an item arrived, quote or link, and the order's entry.
+
 ## v2026.10.34 (2026-10-16)
 
 - **Orders** (`docs/LOGBOOK_FORMAT.md`, "Orders"): a new kind `order` lists its items in the

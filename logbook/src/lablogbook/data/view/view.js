@@ -400,13 +400,27 @@
       `An item stays open until an entry says it arrived: "Resolve" on the item, or "All arrived" for everything still open in an order.`) +
       `<div class="bar2"><label class="search">${icon("search")}<span class="sr">Filter</span><input id="pu-q" type="search" placeholder="Filter items, orders, quotes…" value="${esc(PU.q)}" autocomplete="off" spellcheck="false"></label>` +
       `<label class="switch"><input type="checkbox" id="pu-open"${PU.open ? " checked" : ""}><span>Open only (${all.filter((x) => x.status === "open").length})</span></label>` +
-      `<span class="count" id="pu-n"></span></div><div id="pu-t"></div>`;
+      `<span class="count" id="pu-n"></span><button class="btn ghost" data-act="pu-csv" title="The items shown, as a table for Excel or Google Sheets">${icon("export")}Download CSV</button></div><div id="pu-t"></div>`;
     purchasesTable();
   }
-  function purchasesTable() {
-    const all = D.orders || [], terms = norm(PU.q).split(/\s+/).filter(Boolean);
-    const rows = all.filter((x) => (!PU.open || x.status === "open") &&
+  function purchasesShown() {
+    const terms = norm(PU.q).split(/\s+/).filter(Boolean);
+    return (D.orders || []).filter((x) => (!PU.open || x.status === "open") &&
       terms.every((t) => norm([x.order, x.item, x.info, x.ordered].join(" ")).includes(t)));
+  }
+  function purchasesCsv() {   // the rows shown, one line per item; numbers stay numbers
+    const head = ["Order", "#", "Item", "Qty", "Unit cost", "Total", "Ordered", "Status", "Arrived on", "Arrived in entry", "Quote / info", "Order entry"];
+    const q = (v) => v == null ? "" : typeof v === "number" ? String(v) : `"${String(v).replace(/"/g, '""')}"`;
+    const lines = [head.map(q).join(",")].concat(purchasesShown().map((x) => [x.order, x.n, x.item, x.qty, x.unit_cost, x.total, x.ordered,
+      x.status, x.arrived_on, x.arrived_in, x.info, x.entry].map(q).join(",")));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" }));
+    a.download = `purchases-${D.today}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  function purchasesTable() {
+    const all = D.orders || [], rows = purchasesShown();
     const openBy = {};   // what is still open per order: one link resolves all of it
     for (const x of all) if (x.status === "open") (openBy[x.entry] = openBy[x.entry] || []).push(x.key);
     let last = null;
@@ -724,6 +738,7 @@
     if (!t) return;
     if (t.dataset.more) { limit = +t.dataset.more; render(); }
     else if (t.dataset.act === "export") exportDialog();
+    else if (t.dataset.act === "pu-csv") purchasesCsv();
     else if (t.dataset.act === "clear") { fromHash(""); go(); }
   });
   main.addEventListener("change", (ev) => {
