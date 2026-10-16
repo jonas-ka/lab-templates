@@ -310,3 +310,4 @@ dialog form { display: flex; justify-content: flex-end; margin-top: 14px; }
 
 tr.overdue td { background: var(--red-bg); }
 .tag.overdue { font-weight: 600; }
+td.wrap { overflow-wrap: anywhere; min-width: 12em; }

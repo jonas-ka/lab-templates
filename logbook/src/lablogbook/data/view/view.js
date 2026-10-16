@@ -385,6 +385,49 @@
         { html: `${esc(fmtDate(x.e.date))} <span class="tag gray">${x.age} d</span>`, cls: "nowrap" },
         { html: `<span class="avs">${x.e.authors.map((a) => avatar(a)).join("")}</span>` }] })), "t full") : `<p class="empty">Nothing open.</p>`);
   }
+  // ------------------------------------------------------------------ purchases -----------
+  // Every item of every order (entries of kind order) and whether it arrived; filtered in place.
+  const PU = { q: "", open: false };
+  const money = (v) => typeof v === "number"
+    ? esc((v < 0 ? "−" : "") + (D.currency || "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }))
+    : esc(v == null ? "" : v);
+  const isoDate = (s) => /^\d{4}-\d{2}-\d{2}/.test(s || "");
+  function viewPurchases() {
+    const all = D.orders || [];
+    crumbs([{ t: "Purchases" }]);
+    main.className = "wide";
+    main.innerHTML = pageHead("Purchases", `Every item of every order (entries of kind <code class="c">order</code>) and whether it has arrived. ` +
+      `An item stays open until an entry says it arrived: "Resolve" on the item, or "All arrived" for everything still open in an order.`) +
+      `<div class="bar2"><label class="search">${icon("search")}<span class="sr">Filter</span><input id="pu-q" type="search" placeholder="Filter items, orders, quotes…" value="${esc(PU.q)}" autocomplete="off" spellcheck="false"></label>` +
+      `<label class="switch"><input type="checkbox" id="pu-open"${PU.open ? " checked" : ""}><span>Open only (${all.filter((x) => x.status === "open").length})</span></label>` +
+      `<span class="count" id="pu-n"></span></div><div id="pu-t"></div>`;
+    purchasesTable();
+  }
+  function purchasesTable() {
+    const all = D.orders || [], terms = norm(PU.q).split(/\s+/).filter(Boolean);
+    const rows = all.filter((x) => (!PU.open || x.status === "open") &&
+      terms.every((t) => norm([x.order, x.item, x.info, x.ordered].join(" ")).includes(t)));
+    const openBy = {};   // what is still open per order: one link resolves all of it
+    for (const x of all) if (x.status === "open") (openBy[x.entry] = openBy[x.entry] || []).push(x.key);
+    let last = null;
+    $("#pu-n").textContent = `${rows.length} of ${all.length}`;
+    $("#pu-t").innerHTML = rows.length ? table(["Order", "#", "Item", "Qty", "Unit cost", "Total", "Ordered", "Status", "Quote / info"], rows.map((x) => {
+      const e = byId[x.entry] || { id: x.entry, title: x.entry, project: "" };
+      const first = x.entry !== last; last = x.entry;
+      const rest = openBy[x.entry] || [];
+      const allArrived = first && rest.length > 1 && D.site ? ` <a class="link" href="${newEntry({ title: "Arrived: order " + x.order,
+        resolves: rest.join(", "), project: e.project, tags: "purchase" })}" title="Write an entry that says everything still open in this order arrived">All arrived</a>` : "";
+      const info = /^https?:\/\//.test(x.info || "")
+        ? `<a class="link" href="${esc(x.info)}" rel="noopener" title="${esc(x.info)}">${esc(x.info.replace(/^https?:\/\/(www\.)?/, "").slice(0, 32))}…</a>` : esc(x.info || "");
+      const st = x.status === "open" ? `<span class="status open"></span> Open${resolveLink(e, "item-" + x.n, x.item)}`
+        : `<span class="status done"></span> Arrived${isoDate(x.arrived_on) ? " " + esc(fmtDate(x.arrived_on)) : ""}${x.arrived_in ? " · " + entryLink(x.arrived_in) : ""}`;
+      return { cells: [{ html: first ? entryLink(x.entry, null, "Order " + x.order) + allArrived : "", cls: "nowrap" }, x.n,
+        { html: esc(x.item), cls: "item" }, typeof x.qty === "number" ? x.qty : String(x.qty == null ? "" : x.qty),
+        { html: money(x.unit_cost), cls: "num" }, { html: money(x.total), cls: "num" },
+        { html: isoDate(x.ordered) ? esc(fmtDate(x.ordered)) : esc(x.ordered || ""), cls: "nowrap" }, { html: st, cls: "nowrap" },
+        { html: info, cls: "wrap" }] };
+    }), "t full") : `<p class="empty">No items.</p>`;
+  }
   function snapshotTable(s, other) {
     const ov = other ? Object.fromEntries(other.pvs.map((p) => [p.name, p])) : {};
     return table(["PV", "Value", "Unit", "Severity"].concat(other ? ["Δ to the other"] : []), s.pvs.map((p) => {
@@ -594,7 +637,8 @@
       (S ? `<a class="nav" href="${S.new_entry}"><span class="emo" aria-hidden="true">➕</span><span class="lbl">New entry</span></a>` : "") +
       `<div style="height:8px"></div>` +
       nav("#/", "🗂️", "Entries", E.length) + nav("#/open", "📌", "Open items", openItems(E).length) +
-      nav("#/people", "👥", "People") + nav("#/refs", "📚", "References", D.references.length || null);
+      nav("#/people", "👥", "People") + nav("#/refs", "📚", "References", D.references.length || null) +
+      ((D.orders || []).length ? nav("#/purchases", "🧾", "Purchases", D.orders.filter((x) => x.status === "open").length || null) : "");
     h += `<h4>Projects</h4>`;
     for (const p of D.projects) if (pc[p.name] || p.wiki) h += nav(`#/project/${enc(p.name)}`, "📁", p.name, pc[p.name] || 0);
     if (D.apparatus.length) { h += `<h4>Apparatus</h4>`; for (const a of D.apparatus) h += nav(`#/apparatus/${enc(a.id)}`, "🔧", a.name); }
@@ -625,7 +669,7 @@
     const path = at < 0 ? raw : raw.slice(0, at), qs = at < 0 ? "" : raw.slice(at + 1);
     const parts = path.split("/").filter(Boolean).map(decodeURIComponent);
     const map = { e: "entry", open: "open", projects: "projects", project: "project", apparatus: parts[1] ? "app" : "apps",
-                  people: "people", person: "person", wiki: parts[1] ? "wikipage" : "wiki", refs: "refs" };
+                  people: "people", person: "person", wiki: parts[1] ? "wikipage" : "wiki", refs: "refs", purchases: "purchases" };
     return { name: parts.length ? map[parts[0]] || "entries" : "entries", parts, qs };
   }
   function render() {
@@ -638,7 +682,7 @@
     ({ entries: viewEntries, open: viewOpen, entry: () => viewEntry(r.parts[1], r.parts[2]), projects: viewProjects,
        project: () => viewProject(r.parts.slice(1).join("/")), apps: viewApparatusList, app: () => viewApparatus(r.parts[1]),
        people: viewPeople, person: () => viewPerson(r.parts[1]), wiki: viewWikiList, wikipage: () => viewWiki(r.parts.slice(1).join("/")),
-       refs: viewRefs })[r.name]();
+       refs: viewRefs, purchases: viewPurchases })[r.name]();
     renderSide();
     figures(main);
     const here = $("#crumbs .c");
@@ -648,6 +692,7 @@
   // ------------------------------------------------------------------ wiring ---------------
   let timer;
   main.addEventListener("input", (ev) => {
+    if (ev.target.id === "pu-q") { PU.q = ev.target.value; purchasesTable(); return; }
     if (ev.target.id !== "q") return;
     clearTimeout(timer);
     timer = setTimeout(() => {
@@ -685,6 +730,7 @@
     if (ev.target.id === "sort") { F.sort = ev.target.value; go(); }
     if (ev.target.id === "op-prio") { OP.prio = ev.target.value; go(); }
     if (ev.target.id === "op-sort") { OP.sort = ev.target.value; go(); }
+    if (ev.target.id === "pu-open") { PU.open = ev.target.checked; purchasesTable(); }
     if (ev.target.dataset.act === "full") { F.full = ev.target.checked; limit = 100; go(); }
   });
   $("#top-actions").addEventListener("click", (ev) => {

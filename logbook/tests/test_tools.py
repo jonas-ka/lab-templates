@@ -384,7 +384,7 @@ def test_issue_form_and_parsing(tmp_path):
     book = open_book(EXAMPLE)
     form = github.issue_form(book)
     labels = {b["attributes"]["label"] for b in form["body"] if "label" in b.get("attributes", {})}
-    assert set(github.FORM_LABELS) - github.LEGACY_LABELS <= labels          # every field the parser reads exists
+    assert set(github.FORM_LABELS) - github.LEGACY_LABELS - github.SCRIPT_LABELS <= labels          # every field the parser reads exists
     ids = [b.get("id") for b in form["body"] if b.get("id")]
     assert "title" not in ids and ids[:3] == ["project", "kind", "body"]      # the issue's own title; the text early
     people = next(b for b in form["body"] if b.get("id") == "coauthors")["attributes"]["options"]
@@ -743,3 +743,51 @@ def test_migrated_refs_keep_file_names_and_links():
                             '"Code": link("https://github.com/org/repo")[org/repo])', markdown=True)
     assert md == {"Test": "`tests/test_scaling.py`", "Decks": "`talks/<slug>/` and `review/*.html`",
                   "Code": "[org/repo](https://github.com/org/repo)"}
+
+
+def _order_book(tmp_path):
+    from lablogbook import orders
+    d = tmp_path / "book"
+    shutil.copytree(EXAMPLE, d)
+    items = orders.normalise([
+        {"item": "SHV connectors", "qty": "4", "unit_cost": "$12.50", "total": "$50", "info": "https://example.com/shv", "ordered": "2026-10-02"},
+        {"item": "BNC cable | 2 m", "qty": 3.0, "unit_cost": 20, "total": 60, "info": "quote-17.pdf", "ordered": "2026-10-02"},
+        {"item": "Old gauge", "qty": 1, "total": 900, "ordered": "2026-10-02", "arrived": True}])
+    body = orders.body(items, "For the HV cage.")
+    head = {"date": "2026-10-02", "authors": ["aa"], "kind": "order", "project": "Example experiment",
+            "title": "Order 17: connectors", "tags": ["purchase"], "order": "17", "items": items}
+    (d / "entries/2026/2026-10-02-0900-aa-order-17-connectors.md").write_text(
+        "---\n" + yaml.safe_dump(head, sort_keys=False, allow_unicode=True) + "---\n\n" + body)
+    (d / "entries/2026/2026-10-05-0900-aa-the-connectors-arrived.md").write_text(
+        "---\ndate: 2026-10-05\nauthors: [aa]\nkind: note\nproject: Example experiment\ntitle: The connectors arrived\n"
+        "resolves: [2026-10-02-0900-aa-order-17-connectors#item-1]\n---\n\nAll four, unpacked in the lab.\n")
+    return d, items, body
+
+
+def test_an_order_lists_its_items_and_each_stays_open_until_it_arrives(tmp_path):
+    from lablogbook import orders
+    d, items, body = _order_book(tmp_path)
+    assert items[0] == {"n": 1, "item": "SHV connectors", "qty": 4, "unit_cost": 12.5, "total": 50,
+                        "info": "https://example.com/shv", "ordered": "2026-10-02"}
+    assert "| 1 | SHV connectors | 4 | $12.50 | $50 | <https://example.com/shv> | 2026-10-02 |" in body
+    assert "BNC cable \\| 2 m" in body and "::: todo {#item-2 priority=low}\nArrived: BNC cable \\| 2 m (×3)\n:::" in body
+    assert "#item-3" not in body                                       # it had arrived already
+    book = open_book(d)
+    r = check.run(book, check.Options(today="2026-10-06"))
+    order_file = [f for f in r.findings if "order-17" in str(f.path)]
+    assert not [f for f in order_file if f.level == "fail"], [f.message for f in order_file]
+    rows = orders.status(book)
+    assert [(x["n"], x["status"]) for x in rows] == [(1, "arrived"), (2, "open"), (3, "arrived")]
+    assert rows[0]["arrived_on"] == "2026-10-05" and rows[0]["arrived_by"] == ["aa"]
+    out = subprocess.run([sys.executable, "-m", "lablogbook.cli", "--root", str(d), "orders", "--open"], capture_output=True, text=True)
+    assert "BNC cable" in out.stdout and "SHV" not in out.stdout and "1 item(s), 1 open" in out.stdout
+
+
+def test_an_order_from_a_script_through_the_form(tmp_path):
+    book = open_book(EXAMPLE)
+    answers = {"title": "Order 18: optics", "project": "Example experiment", "kind": "note", "body": "Mirrors for the laser.",
+               "order": "18", "items": '```json\n[{"item": "Mirror", "qty": 2, "unit_cost": 150, "total": 300, "ordered": "2026-10-06"}]\n```'}
+    header, body = github.draft_from_issue(book, answers, [], tmp_path, None, fetch=None)
+    assert header["kind"] == "order" and header["order"] == "18" and header["items"][0]["n"] == 1
+    assert body.startswith("Mirrors for the laser.") and "| 1 | Mirror | 2 | $150 | $300 |" in body and "{#item-1 priority=low}" in body
+    assert github.parse_issue_body("### Order\n\n18\n\n### Items\n\n```json\n[]\n```")["order"] == "18"

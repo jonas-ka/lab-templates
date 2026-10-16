@@ -2,6 +2,16 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.34 (2026-10-16)
+
+- **Orders** (`docs/LOGBOOK_FORMAT.md`, "Orders"): a new kind `order` lists its items in the
+  header (`order`, `items`); every item not yet arrived is a low-priority open item
+  `#item-<n>` until a later entry resolves it. The view gets a **Purchases** page (every item,
+  newest order first, open or arrived, "Resolve" per item and "All arrived" per order); `logbook
+  orders [--open] [--json]`; the form takes an order from a script (`### Order` and `### Items`,
+  JSON). The site's workflow publishes `orders.json` on the branch `logbook-status`, so it now
+  needs `contents: write`. **Run `logbook init-github --force`.**
+
 ## v2026.10.33 (2026-10-15)
 
 - **`logbook migrate`: references keep their file names.** `#refs((…))` values lost every `_`

@@ -303,6 +303,16 @@ def check_entry(book: Book, e: Entry, st: state.State, report: Report, opts: Opt
             report.add("warn", "priority", rel, _header_line(e, "priority"),
                        f"'{target}' is already resolved by {', '.join(st.resolved_by[target])}; its priority no longer matters")
 
+    if h.get("kind") == "order" and isinstance(h.get("items"), list):
+        ns = [x.get("n") for x in h["items"] if isinstance(x, dict)]
+        if len(ns) != len(set(ns)):
+            report.add("fail", "order", rel, _header_line(e, "items"), "two items with the same n")
+        anchors = e.anchors()
+        for x in h["items"]:
+            if isinstance(x, dict) and not x.get("arrived") and f"item-{x.get('n')}" not in anchors:
+                report.add("warn", "order", rel, _header_line(e, "items"),
+                           f"item {x.get('n')} has not arrived but has no open item #item-{x.get('n')}")
+
     # --- blocks ----------------------------------------------------------------------------------
     for b in e.blocks:
         if b.priority is not None and (b.priority not in entry_mod.PRIORITIES or b.name not in OPENABLE or not b.anchor):

@@ -31,7 +31,7 @@ from .entry import load_yaml, new_id
 
 SECTION_DIR = {"figures": "figures", "data": "data", "attachments": "attachments", "epics": "epics"}
 ORDER = ["date", "time", "tz", "authors", "with", "kind", "project", "subproject", "also", "apparatus", "title", "tags",
-         "attendees", "runs", "parameters", "valid_until", "corrects", "redacts", "level", "related", "resolves", "priority",
+         "attendees", "runs", "parameters", "order", "items", "valid_until", "corrects", "redacts", "level", "related", "resolves", "priority",
          "figures", "data", "attachments", "epics", "refs", "backfilled", "migrated_from", "logged", "reviewed", "release"]
 
 

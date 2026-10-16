@@ -18,7 +18,7 @@ import re
 import shutil
 from pathlib import Path
 
-from . import __version__, render
+from . import __version__, orders, render
 from .book import Book
 from .entry import OPENABLE, Entry
 
@@ -155,6 +155,7 @@ def book_data(book: Book, p: render.Prepared, bodies: dict, wiki_html: dict, ref
             if a not in {x["id"] for x in apparatus}:
                 apparatus.append({"id": a, "name": a, "wiki": None})
     people = {h: {"name": p.name(h)} for e in p.entries for h in e.authors + list(e.header.get("attendees") or [])}
+    shown = {e.id for e in p.entries}   # an export's view shows only its own orders
     logo, logo_wide = None, False
     if book.config.get("logo"):
         lp = (book.root / book.config["logo"]).resolve()
@@ -163,6 +164,8 @@ def book_data(book: Book, p: render.Prepared, bodies: dict, wiki_html: dict, ref
             w, h = _image_size(lp)
             logo_wide = bool(w and h and w > 1.6 * h)
     return {"title": book.config.get("title", "Log book"), "logo": logo, "logo_wide": logo_wide, "generated": book.now().isoformat(timespec="minutes"),
+            "orders": [r for r in orders.status(book, st) if r["entry"] in shown],
+            "currency": (book.config.get("orders") or {}).get("currency", "$"),
             "today": today, "asapDays": book.config["open_items"]["asap_days"], "version": __version__, "site": _site(book), "people": people, "projects": projects,
             "apparatus": apparatus, "kinds": list(book.kinds), "entries": entries, "wiki": wiki, "references": refs}
 

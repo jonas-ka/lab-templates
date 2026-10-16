@@ -9,6 +9,7 @@
     logbook migrate <logbook.typ>          a Typst log book into entries
     logbook month [--month YYYY-MM] --to DIR,  logbook digest
     logbook deliver --to DIR               the attested monthly PDFs into a folder (e.g. Drive)
+    logbook orders [--open] [--json]       purchases (entries of kind order) and what has arrived
     logbook epics snapshot GROUP,  logbook epics restore ENTRY
     logbook init DIR [--title ...]         a new central log book (lab/docs/LOGBOOK_SETUP.md)
     logbook init-github,  logbook github-settings --repo O/N --admin LOGIN
@@ -225,6 +226,21 @@ def _cmd_deliver(a) -> int:
     return 0
 
 
+def _cmd_orders(a) -> int:
+    from . import orders
+    rows = orders.status(open_book(a.root))
+    if a.open:
+        rows = [r for r in rows if r["status"] == "open"]
+    if a.json:
+        print(json.dumps(rows, ensure_ascii=False, indent=1))
+        return 0
+    for r in rows:
+        when = f"arrived {r.get('arrived_on') or ''}".strip() if r["status"] == "arrived" else "OPEN"
+        print(f"{r['order']:>5}  {r['n']:>3}  {when:18}  {r['item'][:70]}")
+    print(f"{len(rows)} item(s), {sum(r['status'] == 'open' for r in rows)} open")
+    return 0
+
+
 def _cmd_digest(a) -> int:
     from . import reports
     print(reports.digest(open_book(a.root), a.today, a.days), end="")
@@ -386,6 +402,11 @@ def main(argv: list[str] | None = None) -> int:
     dv.add_argument("--launch-agent", metavar="LABEL", help="print a macOS LaunchAgent that runs this daily, instead")
     dv.add_argument("--hour", type=int, default=9, help="for --launch-agent (default 9)")
     dv.set_defaults(func=_cmd_deliver)
+
+    od = sub.add_parser("orders", help="the items of every order (kind order) and whether they arrived")
+    od.add_argument("--open", action="store_true", help="only items still open")
+    od.add_argument("--json", action="store_true", help="as JSON (what the site publishes as the status file)")
+    od.set_defaults(func=_cmd_orders)
 
     d = sub.add_parser("digest", help="the weekly summary (Markdown)")
     d.add_argument("--today"); d.add_argument("--days", type=int, default=7)

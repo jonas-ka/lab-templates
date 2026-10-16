@@ -35,7 +35,8 @@ DEFAULTS = {
     # host, a book names its own (example.edu, lab.example.gov); id_pattern: student or staff ID numbers
     # (a regular expression; null turns the rule off; default: nine digits standing alone)
     "privacy": {"email_domains": ["edu"]},
-    "open_items": {"asap_days": 2},   # an item ASAP for longer than this goes to the top, marked overdue
+    "open_items": {"asap_days": 2},
+    "orders": {"currency": "$"},        # the symbol in front of an order's prices   # an item ASAP for longer than this goes to the top, marked overdue
 }
 
 

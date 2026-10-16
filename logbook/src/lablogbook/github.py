@@ -26,9 +26,12 @@ FORM_LABELS = {  # issue-form label -> field
     "Apparatus": "apparatus", "Tags": "tags", "Date of the work": "date", "Corrects": "corrects",
     "Resolves": "resolves", "Entry": "body", "Open items": "todos", "Figures and files": "files", "Figures, data and attachments": "files",
     "Export control": "export_control",
+    "Order": "order", "Items": "items",   # not in the form: sections a script writes for an order
 }
 # labels of earlier versions of the form, still read from issues filed with them
 LEGACY_LABELS = {"Title", "Figures, data and attachments"}
+# sections a script writes (an order), not fields of the form
+SCRIPT_LABELS = {"Order", "Items"}
 
 
 class IssueError(RuntimeError):
@@ -190,6 +193,13 @@ def draft_from_issue(book: Book, answers: dict, files: list[dict], workdir: Path
     if answers.get("apparatus"):
         h["apparatus"] = re.findall(r"\(([\w-]+)\)", answers["apparatus"])
     body = answers.get("body", "")
+    if answers.get("items"):   # an order: its items, as JSON, become the header's items and the table
+        from . import orders
+        items = orders.parse_items(answers["items"])
+        h["kind"] = orders.KIND
+        h["order"] = (answers.get("order") or "").strip() or h["title"]
+        h["items"] = items
+        body = orders.body(items, body, (book.config.get("orders") or {}).get("currency", "$"))
     loose, _unknown = file_notes(answers.get("files", ""))
     body, from_text = body_images(body, loose if not files else {})
     files = list(files) + from_text
