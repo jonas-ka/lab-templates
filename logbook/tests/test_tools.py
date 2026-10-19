@@ -793,3 +793,37 @@ def test_an_order_from_a_script_through_the_form(tmp_path):
     assert header["kind"] == "order" and header["order"] == "18" and header["items"][0]["n"] == 1
     assert body.startswith("Mirrors for the laser.") and "| 1 | Mirror | 2 | $150 | $300 |" in body and "{#item-1 priority=low}" in body
     assert github.parse_issue_body("### Order\n\n18\n\n### Items\n\n```json\n[]\n```")["order"] == "18"
+
+
+def test_photos_lose_their_metadata_and_large_ones_shrink(tmp_path):
+    from PIL import Image
+    from lablogbook import photos
+    big = tmp_path / "phone.jpg"
+    exif = Image.Exif(); exif[0x010F] = "PhoneMaker"; exif[0x8825] = {2: (30.0, 37.0, 0.0)}   # make, GPS
+    Image.effect_noise((4000, 3000), 120).convert("RGB").save(big, "JPEG", quality=98, exif=exif)
+    assert big.stat().st_size > 2 * 1024 * 1024
+    out, note = photos.prepare(big)
+    with Image.open(out) as im:
+        assert max(im.size) <= photos.LONG_SIDE and not im.getexif()
+    assert out.stat().st_size < 2 * 1024 * 1024 and "scaled" in note
+    small = tmp_path / "shot.png"
+    Image.new("RGB", (300, 200), "white").save(small, pnginfo=__import__("PIL.PngImagePlugin", fromlist=["PngInfo"]).PngInfo())
+    out, note = photos.prepare(small)
+    assert out == small and note == "metadata removed"
+    assert photos.prepare(tmp_path / "data.csv") == (tmp_path / "data.csv", None)
+
+
+def test_images_of_a_private_issue_come_through_their_signed_links(tmp_path, monkeypatch):
+    aid = "1cda0822-6e7c-482d-8947-8351b5ffbabf"
+    html = (f'<p><a href="x"><img alt="Image" src="https://private-user-images.githubusercontent.com/1/2-{aid}.jpg?jwt=abc&amp;x=1"></a></p>')
+    monkeypatch.setattr(github, "_gh", lambda *a, check=True: html)
+    signed = github.signed_images("org/repo", 78)
+    assert signed == {aid: f"https://private-user-images.githubusercontent.com/1/2-{aid}.jpg?jwt=abc&x=1"}
+    seen = []
+    def fake_download(url, dest, token):
+        seen.append((url, token)); dest.write_bytes(b"not an image"); return dest
+    monkeypatch.setattr(github, "download", fake_download)
+    fetch = github.fetch_with_signed(signed)
+    fetch(f"https://github.com/user-attachments/assets/{aid}", tmp_path / "a", "TOKEN")
+    fetch("https://github.com/user-attachments/files/9/report.pdf", tmp_path / "b.pdf", "TOKEN")
+    assert seen == [(signed[aid], None), ("https://github.com/user-attachments/files/9/report.pdf", "TOKEN")]

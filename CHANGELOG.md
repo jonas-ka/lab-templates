@@ -2,6 +2,22 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.36 (2026-10-19)
+
+Found with a form entry that never arrived:
+
+- **Images from the form in a private repository:** GitHub does not serve an attachment's
+  `github.com/user-attachments/…` link to a token, so the form's workflow failed with "HTTP
+  Error 404". It now takes each image through the signed link in the issue's rendered HTML. A
+  failed download names the file, and a web page served instead of the file is caught.
+- **Photos from the form lose their metadata** (EXIF: camera, time, GPS location), and one over
+  2 MB is scaled down (at most 2400 px on the long side, JPEG) so it stays under the limits.
+  This needs Pillow, now a dependency.
+- **A form entry is dated when it was submitted**, not when the workflow reads it (a rerun days
+  later kept today's date).
+- **Missing alt text:** the issue's comment says how to add it, for an image in the text or a
+  file in "Figures and files".
+
 ## v2026.10.35 (2026-10-16)
 
 - **Purchases page: "Download CSV"** saves the items shown (after the filter and "Open only")

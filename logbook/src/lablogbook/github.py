@@ -11,6 +11,7 @@ import json
 import os
 import re
 import tempfile
+import urllib.error
 import urllib.request
 from importlib import resources
 from pathlib import Path
@@ -145,13 +146,50 @@ MEDIA_EXT = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "im
 
 def download(url: str, dest: Path, token: str | None) -> Path:
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"} if token else {})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        data = r.read()
-        kind = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            data = r.read()
+            kind = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+    except urllib.error.HTTPError as e:
+        raise IssueError(f"could not download {url.split('?')[0]} (HTTP {e.code})") from None
+    if kind == "text/html":   # a sign-in page, not the file
+        raise IssueError(f"could not download {url.split('?')[0]} (GitHub sent a web page instead)")
     if not dest.suffix and kind in MEDIA_EXT:   # attachment links carry no file name
         dest = dest.with_suffix(MEDIA_EXT[kind])
     dest.write_bytes(data)
     return dest
+
+
+_ASSET_ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def signed_images(repo: str, number: int) -> dict[str, str]:
+    """{asset id: signed link} for the images of an issue. In a private repository an image's
+    github.com/user-attachments link is not served to a token; the issue's rendered HTML has a
+    short-lived signed link to each image (private-user-images.githubusercontent.com)."""
+    try:
+        html = _gh("api", f"repos/{repo}/issues/{number}", "-H", "Accept: application/vnd.github.full+json",
+                   "-q", ".body_html", check=False)
+    except Exception:   # noqa: BLE001 - without the HTML, images are fetched as before
+        return {}
+    out = {}
+    for src in re.findall(r'<img[^>]*\bsrc="(https://private-user-images\.githubusercontent\.com/[^"]+)"', html or ""):
+        m = _ASSET_ID.search(src)
+        if m:
+            out.setdefault(m.group(0), src.replace("&amp;", "&"))
+    return out
+
+
+def fetch_with_signed(signed: dict[str, str]):
+    """A `fetch` for draft_from_issue: an image through its signed link (no token needed), anything
+    else as before; photos then lose their metadata and, when large, are scaled down."""
+    from . import photos
+
+    def fetch(url: str, dest: Path, token: str | None) -> Path:
+        m = _ASSET_ID.search(url)
+        path = download(signed[m.group(0)], dest, None) if m and m.group(0) in signed else download(url, dest, token)
+        return photos.prepare(path)[0]
+    return fetch
 
 
 _BODY_IMAGE = re.compile(r'<img\b[^>]*?\bsrc="(https://github\.com/user-attachments/[^"]+)"[^>]*>|'
@@ -181,7 +219,7 @@ def draft_from_issue(book: Book, answers: dict, files: list[dict], workdir: Path
     """(header, body) of a draft for `logbook new`, files downloaded into `workdir`."""
     h: dict = {"title": answers.get("title", "").strip(), "kind": answers.get("kind") or "note",
                "project": answers.get("project", "").strip()}
-    for k in ("subproject", "date", "corrects"):
+    for k in ("subproject", "date", "time", "corrects"):
         if answers.get(k):
             h[k] = answers[k].strip()
     if answers.get("tags"):
@@ -303,7 +341,7 @@ def from_issue(book: Book, number: int, submitter: str, repo: str, out) -> int:
     from . import check, connect, newentry
     from .book import open_book
 
-    issue = json.loads(_gh("issue", "view", str(number), "--repo", repo, "--json", "body,title,state"))
+    issue = json.loads(_gh("issue", "view", str(number), "--repo", repo, "--json", "body,title,state,createdAt"))
     branch = f"entry/issue-{number}"
     # One issue, one entry: an issue that is closed, or whose entry has merged, is done. (Opening an
     # issue with its label fires two events; an edit after the merge must not make a second entry.)
@@ -313,6 +351,13 @@ def from_issue(book: Book, number: int, submitter: str, repo: str, out) -> int:
         print(f"issue #{number} is already done", file=out)
         return 0
     answers = parse_issue_body(issue.get("body", ""))
+    if not answers.get("date") and issue.get("createdAt"):   # dated when it was submitted, not when it is read
+        import datetime as dt
+        from zoneinfo import ZoneInfo
+        at = dt.datetime.fromisoformat(issue["createdAt"].replace("Z", "+00:00"))
+        if book.config.get("timezone"):
+            at = at.astimezone(ZoneInfo(book.config["timezone"]))
+        answers["date"], answers["time"] = at.strftime("%Y-%m-%d"), at.strftime("%H:%M")
     _loose, unknown = file_notes(answers.get("files", ""))
     note = ("\n\nNot understood in \"Figures and files\": " + ", ".join(f"`{u}:`" for u in unknown) +
             " (the labels are Caption, Alt and Source).") if unknown else ""
@@ -332,7 +377,7 @@ def from_issue(book: Book, number: int, submitter: str, repo: str, out) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         try:
             header, body = draft_from_issue(book, answers, parse_files(answers.get("files", "")), Path(tmp),
-                                            os.environ.get("GH_TOKEN"))
+                                            os.environ.get("GH_TOKEN"), fetch=fetch_with_signed(signed_images(repo, number)))
             opts = newentry.Options(handle=person.handle if person else submitter)
             path, h, body = newentry.build(open_book(root), header, body, Path(tmp), opts)
         except Exception as e:   # noqa: BLE001 - the author sees what went wrong on the issue
@@ -345,6 +390,11 @@ def from_issue(book: Book, number: int, submitter: str, repo: str, out) -> int:
                  "-m", f"Entry: {h['title']}\n\nFrom issue #{number} by @{submitter}."])
     report = check.run(open_book(root), check.Options(base="origin/main", submitter=submitter, ci=True))
     if report.exit_code:
+        if any(".alt" in f.message for f in report.findings if f.level == "fail"):
+            note += ("\n\n**Every figure needs a description (alt text)** for readers who cannot see it. For an "
+                     "image dragged into the text, edit the issue and replace `alt=\"Image\"` in its `<img …>` tag "
+                     "with what the image shows; for a file in \"Figures and files\", add a line `Alt: …` (and "
+                     "`Caption: …`) under it.")
         tell("The entry did not pass the checks. Edit the issue to fix it; the form is read again.\n\n```\n"
              + report.render(ci=True) + "\n```" + note)
         print(report.render(ci=True), file=out)
