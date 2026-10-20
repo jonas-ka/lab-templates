@@ -193,13 +193,21 @@
   v(6pt)
 }
 
+/// `footer-citation`: content, shown on every step of the slide, or a list of `(steps, content)`
+/// pairs (steps as in `only`: 2, "2-", "1-3"), so a citation appears with the step that shows
+/// what it cites (JK, 2026-10-20). Matching citations on one step are joined with "; ".
 #let slide(title: auto, footer-citation: none, ..args) = touying-slide-wrapper(self => {
   let info = self.info
   let header = none
+  let citation-at(sub) = if type(footer-citation) == array {
+    let hits = footer-citation.filter(((steps, _)) => utils.check-visible(sub, steps)).map(((_, c)) => c)
+    if hits.len() > 0 { hits.join([; ]) }
+  } else { footer-citation }
   // Footer: a thin rule like the header, then email left, citation centred, sponsor logos
   // and page number right. Everything is placed at fixed positions so nothing moves
-  // from slide to slide; the page number sits in a fixed-width box.
-  let footer = pad(x: 18pt, stack(
+  // from slide to slide; the page number sits in a fixed-width box. A function of `self`, so
+  // Touying draws it per step (`self.subslide`).
+  let footer(self) = pad(x: 18pt, stack(
     dir: ttb,
     spacing: 4pt,
     line(length: 100%, stroke: 0.6pt + band.darken(20%)),
@@ -207,11 +215,12 @@
       if info.at("email", default: none) != none {
         place(left + horizon, text(size: 11pt, weight: "bold", fill: ink, utils.call-or-display(self, info.email)))
       }
-      if footer-citation != none {
+      let citation = citation-at(self.subslide)
+      if citation != none {
         // A long citation is scaled down rather than allowed to run into the email
         // on the left or the sponsor logos and page number on the right.
         place(center + horizon, context {
-          let c = cite-line(footer-citation)
+          let c = cite-line(citation)
           let w = measure(c).width
           let maxw = 420pt
           if w > maxw { scale(maxw / w * 100%, reflow: true, c) } else { c }
