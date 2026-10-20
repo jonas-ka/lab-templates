@@ -215,17 +215,6 @@
       if info.at("email", default: none) != none {
         place(left + horizon, text(size: 11pt, weight: "bold", fill: ink, utils.call-or-display(self, info.email)))
       }
-      let citation = citation-at(self.subslide)
-      if citation != none {
-        // A long citation is scaled down rather than allowed to run into the email
-        // on the left or the sponsor logos and page number on the right.
-        place(center + horizon, context {
-          let c = cite-line(citation)
-          let w = measure(c).width
-          let maxw = 420pt
-          if w > maxw { scale(maxw / w * 100%, reflow: true, c) } else { c }
-        })
-      }
       place(right + horizon, box(width: 24pt, align(right, context text(size: 11pt, weight: "bold", fill: ink, utils.slide-counter.display()))))
       if self.store.sponsors {
         place(right + horizon, dx: -34pt, context if sponsor-state.get() {
@@ -234,9 +223,24 @@
       }
     }),
   ))
+  // The citation is slide content, not part of the footer: the footer is a PDF artifact (not
+  // read aloud, and PDF/UA-1 refuses links in it). It is placed at the footer's centre line,
+  // 30.6 pt below the body; a long one is scaled down rather than run into the email on the
+  // left or the logos and page number on the right.
+  let citation-box(self) = {
+    let citation = citation-at(self.subslide)
+    if citation != none {
+      place(bottom + center, dy: 30.6pt, box(height: 16pt, align(horizon, context {
+        let c = cite-line(citation)
+        let w = measure(c).width
+        let maxw = 420pt
+        if w > maxw { scale(maxw / w * 100%, reflow: true, c) } else { c }
+      })))
+    }
+  }
   // The header goes into the per-subslide preamble: it repeats on every pause step and
   // leaves positional bodies free for Touying's column composer.
-  let preamble(self) = if title == auto {
+  let preamble(self) = citation-box(self) + if title == auto {
     // Touying hands the slide its source headings; the `==` one is the slide title.
     let hs = self.at("headings", default: ()).filter(h => h.depth == 2)
     if hs.len() > 0 { slide-header(hs.last().body) } else { none }
