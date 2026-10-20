@@ -257,13 +257,13 @@
           v(10pt)
           text(size: 13pt, style: "italic", fill: ink, info.date + if "event" in info and info.event != none { [ -- ] + info.event })
         },
-        align(bottom + right, stack(
-          dir: ttb, spacing: 8pt,
-          image(logos.cyclotron, width: 180pt, alt: "Texas A&M University Cyclotron Institute logo"),
-          image(logos.lab, width: 130pt, alt: "Karthein Lab, Texas A&M University logo"),
-        )),
+        box(width: 180pt),   // keeps the title clear of the logo below
       )
+      // Cyclotron Institute logo on the bottom edge of the band, the lab logo at the top of the
+      // white area beneath it (JK, 2026-10-20).
+      place(bottom + right, image(logos.cyclotron, width: 180pt, alt: "Texas A&M University Cyclotron Institute logo"))
     })
+    place(top + right, dx: -18pt, dy: 58% + 10pt, image(logos.lab, width: 130pt, alt: "Karthein Lab, Texas A&M University logo"))
     if contents.len() > 0 {
       block(inset: (x: 18pt, top: 22pt), {
         text(size: 15pt, weight: "bold", [Content:])
