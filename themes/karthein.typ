@@ -42,7 +42,7 @@
 #let template-version = read("../VERSION").trim()
 #let build-rev = sys.inputs.at("rev", default: none)
 #let build-line = {
-  [Template #template-version]
+  [#template-version]
   if build-rev != none [ · git #build-rev]
 }
 

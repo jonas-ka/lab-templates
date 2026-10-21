@@ -2,6 +2,11 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.40 (2026-10-21)
+
+- **Title slide:** the build line reads "v2026.10.37 · git 670dc43"; the word "Template" in front of
+  the version is gone.
+
 ## v2026.10.39 (2026-10-21)
 
 - **The form no longer offers the kind `order`:** only a script writes an order (with its
