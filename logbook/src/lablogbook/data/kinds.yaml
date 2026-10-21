@@ -26,3 +26,4 @@ redaction:
 order:
   description: A purchase order, with its items; each item stays open until an entry says it arrived.
   requires: [order, items]
+  form: false   # written by a script (its items as JSON), not offered in the "New entry" form

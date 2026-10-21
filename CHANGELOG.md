@@ -2,6 +2,12 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.39 (2026-10-21)
+
+- **The form no longer offers the kind `order`:** only a script writes an order (with its
+  items as JSON); someone who chose it for a check-off got two failed checks. A kind marked
+  `form: false` in `kinds.yaml` is left out of the "New entry" form. **Run `logbook init-github`.**
+- The checker says "an order entry", not "a order entry".
 ## v2026.10.38 (2026-10-21)
 
 - **Purchases: a Vendor column** (also searched, and in "Download CSV"). An item's own `vendor`

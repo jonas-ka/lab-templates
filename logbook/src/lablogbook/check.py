@@ -237,7 +237,7 @@ def check_entry(book: Book, e: Entry, st: state.State, report: Report, opts: Opt
     else:
         for f in kind.get("requires") or []:
             if h.get(f) in (None, [], ""):
-                report.add("fail", "kind", rel, _header_line(e, "kind"), f"a {h['kind']} entry needs '{f}'")
+                report.add("fail", "kind", rel, _header_line(e, "kind"), f"{'an' if str(h['kind'])[:1] in 'aeiou' else 'a'} {h['kind']} entry needs '{f}'")
         for f in kind.get("recommends") or []:
             if h.get(f) in (None, [], ""):
                 report.add("warn", "kind", rel, _header_line(e, "kind"), f"a {h['kind']} entry usually has '{f}'")

@@ -842,3 +842,9 @@ def test_an_items_vendor_comes_from_its_quote_or_link():
     assert orders.vendor({"info": "2411.Pumps-quote-Pfeiffer-Karthein.pdf"}, names) == "Pfeiffer Vacuum"
     assert orders.vendor({"info": "2502.Costco-lab-supplies.pdf"}, names) is None
     assert orders.vendor({"info": "https://www.amazon.com/x", "vendor": "Thorlabs"}, names) == "Thorlabs"   # given: kept
+
+
+def test_the_form_does_not_offer_kinds_that_only_scripts_write():
+    form = github.issue_form(open_book(EXAMPLE))
+    kinds = next(f for f in form["body"] if f.get("id") == "kind")["attributes"]["options"]
+    assert "note" in kinds and "order" not in kinds

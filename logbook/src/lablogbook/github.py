@@ -52,7 +52,8 @@ def issue_form(book: Book) -> dict:
             "(with the numbers), what you decided, what is open. Never grades, student records, health information "
             "or manuals: link those where they live.")}},
         {"type": "dropdown", "id": "project", "attributes": {"label": "Project", "options": projects}, "validations": {"required": True}},
-        {"type": "dropdown", "id": "kind", "attributes": {"label": "Kind", "options": list(book.kinds), "default": 0}},
+        {"type": "dropdown", "id": "kind", "attributes": {"label": "Kind", "default": 0,
+         "options": [k for k, v in book.kinds.items() if (v or {}).get("form", True)]}},
         {"type": "textarea", "id": "body", "attributes": {"label": "Entry", "description": (
             "Markdown. Blocks: a line `::: finding`, the text, a line `:::` (also decision, issue, todo); "
             "`::: todo {#todo-1}` makes an open item. Link entries as [[entry-id]].")},
