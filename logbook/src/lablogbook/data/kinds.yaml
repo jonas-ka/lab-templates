@@ -23,3 +23,6 @@ correction:
 redaction:
   description: Records that something was removed from an earlier entry (never what).
   requires: [redacts, level]
+order:
+  description: A purchase order, with its items; each item stays open until an entry says it arrived.
+  requires: [order, items]

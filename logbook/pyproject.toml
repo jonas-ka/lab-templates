@@ -1,11 +1,11 @@
 [project]
 name = "lablogbook"
-version = "2026.10.29"
+version = "2026.10.36"
 description = "Log-book entries as Markdown files: format, checker, rendering (lab-templates)"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
-dependencies = ["pyyaml>=6", "jsonschema>=4.18"]
+dependencies = ["pyyaml>=6", "jsonschema>=4.18", "pillow>=10"]   # pillow: photos from the form (metadata, size)
 
 [project.optional-dependencies]
 test = ["pytest>=8"]

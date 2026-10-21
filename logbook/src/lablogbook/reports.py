@@ -29,7 +29,9 @@ def export(book: Book, f: Filter, out: Path, requested_by: str | None = None, ap
         parts.append("Authors are shown by role, not by name.")
     parts.append("Entries are shown as they were written; corrections are later entries.")
     path = pdf.build(book, out, entries, title=f"{book.config.get('title', 'Log book')}: export",
-                     subtitle=f.describe(book), summary=" ".join(parts), keep_source=False, anonymise=anonymise)
+                     # the template labels the subtitle "Project:"; the whole selection is in the summary
+                     subtitle=", ".join(f.projects) if f.projects else "all projects",
+                     summary=" ".join(parts), keep_source=False, anonymise=anonymise)
     return path, len(entries)
 
 
@@ -79,11 +81,13 @@ def digest(book: Book, today: str | None = None, days: int = 7) -> str:
         lines += [f"- {e.date} · {e.header.get('title')} ({', '.join(nm(a) for a in e.authors)}) `{e.id}`" for e in es]
         lines.append("")
     st = state.compute(book.entries)
-    items = st.open_items(book.entries)
-    lines.append(f"### Open items ({len(items)})")
-    for e, anchor, kind in sorted(items, key=lambda x: x[0].date):
-        age = (t - dt.date.fromisoformat(e.date)).days
-        lines.append(f"- {kind}, open {age} d: {e.header.get('title')} `{e.id}#{anchor}` ({', '.join(nm(a) for a in e.authors)})")
+    items = st.ranked_open_items(book.entries, t, book.config["open_items"]["asap_days"])
+    lines.append(f"### Open items ({len(items)}), most urgent first")
+    for x in items:
+        e = x["entry"]
+        flag = "**overdue** " if x["overdue"] else ""
+        lines.append(f"- {flag}{x['priority']}, {x['kind']}, open {x['age']} d: {e.header.get('title')} `{x['key']}` "
+                     f"({', '.join(nm(a) for a in e.authors)})")
     soon = (t + dt.timedelta(days=30)).isoformat()
     expiring = [e for e in book.entries.values() if e.header.get("valid_until") and t.isoformat() <= str(e.header["valid_until"]) <= soon]
     if expiring:

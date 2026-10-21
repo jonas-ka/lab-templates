@@ -49,6 +49,22 @@
     "related": {"type": "array", "items": {"$ref": "#/$defs/entry_id"}, "uniqueItems": true},
     "resolves": {"type": "array", "items": {"$ref": "#/$defs/anchored_id"}, "uniqueItems": true,
                  "description": "Open issue or todo blocks of earlier entries that this entry settles: <entry-id>#<block-id>."},
+    "order": {"type": ["string", "integer"], "description": "kind: order. The order's number or name."},
+    "items": {"type": "array", "minItems": 1, "description": "kind: order. What was ordered; an item without `arrived` is the open item #item-<n>.",
+      "items": {"type": "object", "additionalProperties": false, "required": ["n", "item"],
+        "properties": {
+          "n": {"type": "integer", "minimum": 1},
+          "item": {"type": "string", "minLength": 1},
+          "qty": {"type": ["number", "string"]},
+          "unit_cost": {"type": ["number", "string"]},
+          "total": {"type": ["number", "string"]},
+          "info": {"type": "string", "description": "A quote's file name, a link, or a note."},
+          "ordered": {"type": "string"},
+          "arrived": {"anyOf": [{"const": true}, {"type": "string"}], "description": "Set when the item had arrived before the entry was written (true, or the date)."}
+        }}},
+    "priority": {"type": "object", "propertyNames": {"$ref": "#/$defs/anchored_id"},
+                 "additionalProperties": {"enum": ["low", "medium", "high", "asap"]},
+                 "description": "New priorities for open items of earlier entries: {<entry-id>#<block-id>: low | medium | high | asap}. The latest entry that names an item sets its priority."},
     "figures": {
       "type": "array",
       "items": {

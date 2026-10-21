@@ -56,6 +56,7 @@ local function figure(key)
     f.label and (' id="' .. f.label .. '"') or "", esc(key), f.w, f.h_visible, esc(key), esc(key), esc(f.alt), esc(f.caption)))
 end
 
+local PRIORITY_LABEL = {low = "low", high = "high", asap = "ASAP"}   -- medium, the default, is not shown
 local inner   -- callouts and figures inside an entry (defined below)
 
 local function Div(el)
@@ -83,6 +84,9 @@ inner = function(el)
     if el.classes:includes(name) then
       if typst then
         local out = pandoc.Blocks({pandoc.RawBlock("typst", "#" .. TYPST_FN[name] .. "[")})
+        -- an open item's priority as written (the view shows the current one)
+        local pr = PRIORITY_LABEL[(el.attributes["priority"] or ""):lower()]
+        if pr then out:insert(pandoc.Plain({pandoc.Emph({pandoc.Str("Priority: " .. pr)})})) end
         out:extend(el.content)
         local close = "]"
         if el.identifier ~= "" then close = close .. " <e-" .. el.identifier .. ">" end

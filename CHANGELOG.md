@@ -2,11 +2,74 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
-## Unreleased
+## v2026.10.37 (2026-10-20)
 
 - **The official Texas A&M logo in the slide header.** `themes/logos/tamu-box.svg` (the maroon box
   from marcomm.tamu.edu's logo downloads, cropped to the box and ®, vector) replaces the Texas
   outline `tamu-mark.png`. **Consumers** copy `tamu-box.svg` into their `themes/logos/`.
+- **Citations per build step:** `footer-citation` also takes a list of `(steps, citation)` pairs,
+  steps as in `only` (`(("2", [...]), ("3-", [...]))`), so a citation appears with the step that
+  shows what it cites; plain content still shows on every step (docs/STYLE.md).
+- **Citations are tagged slide content** at the footer's centre line instead of part of the
+  footer: the footer is a PDF artifact, not read aloud, and under UA-1 a link there is refused.
+  Citations may now carry links.
+- **Title slide:** the institute logo sits on the band's bottom edge, the lab logo below it.
+
+## v2026.10.36 (2026-10-19)
+
+Found with a form entry that never arrived:
+
+- **Images from the form in a private repository:** GitHub does not serve an attachment's
+  `github.com/user-attachments/…` link to a token, so the form's workflow failed with "HTTP
+  Error 404". It now takes each image through the signed link in the issue's rendered HTML. A
+  failed download names the file, and a web page served instead of the file is caught.
+- **Photos from the form lose their metadata** (EXIF: camera, time, GPS location), and one over
+  2 MB is scaled down (at most 2400 px on the long side, JPEG) so it stays under the limits.
+  This needs Pillow, now a dependency.
+- **A form entry is dated when it was submitted**, not when the workflow reads it (a rerun days
+  later kept today's date).
+- **Missing alt text:** the issue's comment says how to add it, for an image in the text or a
+  file in "Figures and files".
+
+## v2026.10.35 (2026-10-16)
+
+- **Purchases page: "Download CSV"** saves the items shown (after the filter and "Open only")
+  as a table for Excel or Google Sheets: order, item, quantity, unit cost, total, ordered date,
+  status, when and in which entry an item arrived, quote or link, and the order's entry.
+
+## v2026.10.34 (2026-10-16)
+
+- **Orders** (`docs/LOGBOOK_FORMAT.md`, "Orders"): a new kind `order` lists its items in the
+  header (`order`, `items`); every item not yet arrived is a low-priority open item
+  `#item-<n>` until a later entry resolves it. The view gets a **Purchases** page (every item,
+  newest order first, open or arrived, "Resolve" per item and "All arrived" per order); `logbook
+  orders [--open] [--json]`; the form takes an order from a script (`### Order` and `### Items`,
+  JSON). The site's workflow publishes `orders.json` on the branch `logbook-status`, so it now
+  needs `contents: write`. **Run `logbook init-github --force`.**
+
+## v2026.10.33 (2026-10-15)
+
+- **`logbook migrate`: references keep their file names.** `#refs((…))` values lost every `_`
+  and `*` (`tests/test_scaling.py` became `tests/testscaling.py`), and `link("…")[…]` came out
+  as Typst code. They are now plain text in an entry's `refs` (code marks removed, what is
+  inside them kept; a link as "text (url)") and Markdown on a wiki page (code kept as code,
+  links as links). A project background's "Where things live" no longer gets the heading
+  twice, nor every value wrapped in one code span. Books migrated before keep what was
+  written: re-check `refs` of migrated entries.
+- **Export PDF:** the header line "Project:" names the selected projects only (it read
+  "project Lab; dated …"); the whole selection stays in the summary.
+
+## v2026.10.32 (2026-10-15)
+
+- **Priorities for open items** (`docs/LOGBOOK_FORMAT.md`, "Blocks"): `low`, `medium` (the
+  default), `high`, `asap`, on the block (`::: todo {#todo-x priority=high}`) or changed by a
+  later entry (`priority: {<entry-id>#todo-x: low}`). Open items are listed most urgent first: an
+  item ASAP for longer than `open_items.asap_days` (default 2) on top, marked overdue, then by
+  priority, then the oldest. In the view (with a priority filter and an order), in
+  `logbook open-items [--priority …]` and in the digest; the PDF shows a written priority. The
+  form: a line under "Open items" starting with `ASAP:`, `High:` or `Low:`. The checker fails an
+  unknown level, a `priority` naming no open item, and `priority=` on another kind of block.
+  **Run `logbook init-github`** (the form's help text).
 
 ## v2026.10.31 (2026-10-15)
 

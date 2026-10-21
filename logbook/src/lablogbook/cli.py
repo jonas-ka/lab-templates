@@ -9,6 +9,7 @@
     logbook migrate <logbook.typ>          a Typst log book into entries
     logbook month [--month YYYY-MM] --to DIR,  logbook digest
     logbook deliver --to DIR               the attested monthly PDFs into a folder (e.g. Drive)
+    logbook orders [--open] [--json]       purchases (entries of kind order) and what has arrived
     logbook epics snapshot GROUP,  logbook epics restore ENTRY
     logbook init DIR [--title ...]         a new central log book (lab/docs/LOGBOOK_SETUP.md)
     logbook init-github,  logbook github-settings --repo O/N --admin LOGIN
@@ -27,6 +28,7 @@ from pathlib import Path
 
 from . import __version__, check, state
 from .book import open_book
+from .entry import PRIORITIES
 
 
 def _yes(question: str) -> bool:
@@ -224,6 +226,21 @@ def _cmd_deliver(a) -> int:
     return 0
 
 
+def _cmd_orders(a) -> int:
+    from . import orders
+    rows = orders.status(open_book(a.root))
+    if a.open:
+        rows = [r for r in rows if r["status"] == "open"]
+    if a.json:
+        print(json.dumps(rows, ensure_ascii=False, indent=1))
+        return 0
+    for r in rows:
+        when = f"arrived {r.get('arrived_on') or ''}".strip() if r["status"] == "arrived" else "OPEN"
+        print(f"{r['order']:>5}  {r['n']:>3}  {when:18}  {r['item'][:70]}")
+    print(f"{len(rows)} item(s), {sum(r['status'] == 'open' for r in rows)} open")
+    return 0
+
+
 def _cmd_digest(a) -> int:
     from . import reports
     print(reports.digest(open_book(a.root), a.today, a.days), end="")
@@ -302,11 +319,15 @@ def _cmd_schema(a) -> int:
 
 def _cmd_open(a) -> int:
     book = open_book(a.root)
-    items = state.compute(book.entries).open_items(book.entries)
+    items = state.compute(book.entries).ranked_open_items(
+        book.entries, book.now().date(), book.config["open_items"]["asap_days"])
     if a.project:
-        items = [x for x in items if a.project in x[0].projects]
-    for e, anchor, name in items:
-        print(f"{e.date}  {name:5}  {e.id}#{anchor}  [{e.header.get('project')}] {e.header.get('title')}")
+        items = [x for x in items if a.project in x["entry"].projects]
+    if a.priority:
+        items = [x for x in items if x["priority"] in a.priority]
+    for x in items:
+        e, flag = x["entry"], "OVERDUE " if x["overdue"] else ""
+        print(f"{flag}{x['priority']:6}  {x['age']:3} d  {x['kind']:5}  {x['key']}  [{e.header.get('project')}] {e.header.get('title')}")
     print(f"{len(items)} open item(s)")
     return 0
 
@@ -382,6 +403,11 @@ def main(argv: list[str] | None = None) -> int:
     dv.add_argument("--hour", type=int, default=9, help="for --launch-agent (default 9)")
     dv.set_defaults(func=_cmd_deliver)
 
+    od = sub.add_parser("orders", help="the items of every order (kind order) and whether they arrived")
+    od.add_argument("--open", action="store_true", help="only items still open")
+    od.add_argument("--json", action="store_true", help="as JSON (what the site publishes as the status file)")
+    od.set_defaults(func=_cmd_orders)
+
     d = sub.add_parser("digest", help="the weekly summary (Markdown)")
     d.add_argument("--today"); d.add_argument("--days", type=int, default=7)
     d.set_defaults(func=_cmd_digest)
@@ -428,7 +454,9 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("schema", help="print the JSON Schema of the entry header")
     s.set_defaults(func=_cmd_schema)
     o = sub.add_parser("open-items", help="issues and todos nothing has resolved yet")
-    o.add_argument("--project"); o.set_defaults(func=_cmd_open)
+    o.add_argument("--project")
+    o.add_argument("--priority", action="append", choices=list(PRIORITIES), help="only these (repeatable)")
+    o.set_defaults(func=_cmd_open)
 
     a = ap.parse_args(argv)
     return a.func(a)

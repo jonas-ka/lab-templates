@@ -15,6 +15,8 @@ import yaml
 ID_RE = re.compile(r"^(?P<date>\d{4}-\d{2}-\d{2})-(?P<hhmm>\d{4})-(?P<handle>[a-z0-9]+)-(?P<slug>[a-z0-9][a-z0-9-]*)$")
 CALLOUTS = ("decision", "finding", "issue", "todo", "context", "incident")
 OPENABLE = ("issue", "todo")  # blocks that stay open until a later entry `resolves` them
+PRIORITIES = ("low", "medium", "high", "asap")   # of an open item; none written means medium
+DEFAULT_PRIORITY = "medium"
 
 # ::: finding            ::: issue {#issue-drift}            ::: {.todo #todo-1}
 _DIV_OPEN = re.compile(r"^(?P<fence>:{3,})\s*(?:(?P<name>[A-Za-z][\w-]*)\s*)?(?:\{(?P<attrs>[^}]*)\})?\s*$")
@@ -59,6 +61,7 @@ class Block:
     name: str           # decision, finding, issue, todo, context, incident, or something unknown
     anchor: str | None  # the {#id}, if any
     line: int           # 1-based line of the opening fence
+    priority: str | None = None   # the block's own `priority=…` ({#todo-x priority=high}), as written
 
 
 @dataclass
@@ -162,7 +165,9 @@ def parse_blocks(body: str, first_line: int) -> list[Block]:
             name, attrs = m.group("name"), m.group("attrs") or ""
             classes = re.findall(r"\.([A-Za-z][\w-]*)", attrs)
             ids = re.findall(r"#([A-Za-z][\w-]*)", attrs)
-            blocks.append(Block(name or (classes[0] if classes else ""), ids[0] if ids else None, i))
+            pr = re.search(r"""\bpriority\s*=\s*["']?([A-Za-z]+)""", attrs)
+            blocks.append(Block(name or (classes[0] if classes else ""), ids[0] if ids else None, i,
+                                pr.group(1).lower() if pr else None))
             depth += 1
         elif _DIV_CLOSE.match(line) and depth:
             depth -= 1

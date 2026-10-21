@@ -258,7 +258,10 @@
       if (!el || el.querySelector(".state")) continue;
       const s = document.createElement("span");
       s.className = "state status " + (by.length ? "done" : "open");
-      s.innerHTML = by.length ? "Resolved in " + by.map((x) => entryLink(x)).join(", ") : "Open" + resolveLink(e, a, el.textContent.trim());
+      const pr = (e.priority || {})[a] || { level: "medium", by: null };
+      s.innerHTML = by.length ? "Resolved in " + by.map((x) => entryLink(x)).join(", ")
+        : "Open " + prioTag({ priority: pr.level, by: pr.by, overdue: isOverdue(pr, e) }) +
+          resolveLink(e, a, el.textContent.trim());
       el.appendChild(s);
     }
   }
@@ -291,13 +294,30 @@
     if (list.length > n) h += `<button class="btn more-btn" data-more="${n + (F.full ? 30 : 100)}">Show ${Math.min(F.full ? 30 : 100, list.length - n)} more</button>`;
     return h;
   }
-  function openItems(list) {
+  const PRIO = ["low", "medium", "high", "asap"];
+  // ASAP for longer than D.asapDays days, counted from the entry that made it ASAP
+  const isOverdue = (pr, e) => pr.level === "asap" && daysSince(pr.since || e.date) > (D.asapDays || 2);
+  const PRIO_LABEL = { low: "Low", medium: "Medium", high: "High", asap: "ASAP" };
+  const PRIO_HUE = { low: "gray", medium: "blue", high: "yellow", asap: "red" };
+  function prioTag(x) {
+    const by = x.by ? ` title="Priority set in ${esc((byId[x.by] || { title: x.by }).title)}"` : "";
+    return `<span class="tag ${PRIO_HUE[x.priority]}"${by}>${PRIO_LABEL[x.priority]}</span>` +
+      (x.overdue ? ` <span class="tag red overdue" title="ASAP for longer than ${D.asapDays || 2} days">overdue</span>` : "");
+  }
+  // open items, most urgent first: an ASAP item open longer than D.asapDays days, then by
+  // priority, then the oldest first; `order` "old" / "new" sorts by date only
+  function openItems(list, order = "urgent") {
     const out = [];
     for (const e of list) for (const [anchor, by] of Object.entries(e.resolved || {})) if (!by.length) {
       const b = (e.blocks || {})[anchor] || { name: "todo", text: "" };
-      out.push({ e, anchor, name: b.name, text: b.text });
+      const pr = (e.priority || {})[anchor] || { level: "medium", by: null };
+      out.push({ e, anchor, name: b.name, text: b.text, priority: pr.level, by: pr.by, age: daysSince(e.date),
+                 overdue: isOverdue(pr, e) });
     }
-    return out.sort((a, b) => a.e.date.localeCompare(b.e.date));
+    const byDate = (a, b) => a.e.date.localeCompare(b.e.date) || a.e.id.localeCompare(b.e.id);
+    if (order === "old") return out.sort(byDate);
+    if (order === "new") return out.sort((a, b) => byDate(b, a));
+    return out.sort((a, b) => (b.overdue - a.overdue) || (PRIO.indexOf(b.priority) - PRIO.indexOf(a.priority)) || byDate(a, b));
   }
   function table(head, trs, cls = "t") {
     return `<div class="tbl-wrap"><table class="${cls}"><thead><tr>${head.map((x) => `<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>` +
@@ -335,6 +355,7 @@
 
   // ------------------------------------------------------------------ views ---------------
   let limit = 100;
+  const OP = { prio: "", sort: "urgent" };   // the open-items page's own priority filter and order
   function viewEntries() {
     listBase = "#/";
     const { list, Q } = filtered();
@@ -346,17 +367,80 @@
   function viewOpen() {
     listBase = "#/open";
     const { list, Q } = filtered();
-    const items = openItems(list).filter((x) => !Q.terms.length || Q.terms.every((t) => norm(x.text + " " + x.e.title).includes(t)));
+    const items = openItems(list, OP.sort).filter((x) => (!OP.prio || x.priority === OP.prio) &&
+      (!Q.terms.length || Q.terms.every((t) => norm(x.text + " " + x.e.title).includes(t))));
     crumbs([{ t: "Open items" }]);
     main.className = "wide";
-    main.innerHTML = pageHead("Open items", `Issues and todos that no later entry has resolved yet. A new entry resolves one by listing it under <code class="c">resolves:</code>.`) +
+    main.innerHTML = pageHead("Open items", `Issues and todos that no later entry has resolved yet, most urgent first: items ASAP for longer than ${D.asapDays || 2} days, then by priority, then the oldest. A new entry resolves one by listing it under <code class="c">resolves:</code>, and changes a priority with <code class="c">priority: {&lt;entry-id&gt;#&lt;item&gt;: low}</code>.`) +
       toolbar(items.length, openItems(E).length) +
-      (items.length ? table(["Item", "Entry", "Project", "Open since", "By"], items.map((x) => ({ cells: [
+      `<div class="bar2"><select class="select-plain" id="op-prio" aria-label="Priority"><option value="">Every priority</option>` +
+      PRIO.slice().reverse().map((k) => `<option value="${k}"${OP.prio === k ? " selected" : ""}>${PRIO_LABEL[k]}</option>`).join("") + `</select>` +
+      `<select class="select-plain" id="op-sort" aria-label="Order">` +
+      [["urgent", "Most urgent first"], ["old", "Oldest first"], ["new", "Newest first"]].map(([k, l]) => `<option value="${k}"${OP.sort === k ? " selected" : ""}>${l}</option>`).join("") + `</select></div>` +
+      (items.length ? table(["Item", "Priority", "Entry", "Project", "Open since", "By"], items.map((x) => ({ cls: x.overdue ? "overdue" : "", cells: [
         { html: `<span class="status open" title="${esc(x.name)}"></span> ${highlight(x.text, Q.terms)}${resolveLink(x.e, x.anchor, x.text)}`, cls: "item" },
+        { html: prioTag(x), cls: "nowrap" },
         { html: entryLink(x.e.id, x.anchor, x.e.title), cls: "entry" },
         { html: projTag(x.e.project, x.e.subproject) },
-        { html: `${esc(fmtDate(x.e.date))} <span class="tag gray">${daysSince(x.e.date)} d</span>`, cls: "nowrap" },
+        { html: `${esc(fmtDate(x.e.date))} <span class="tag gray">${x.age} d</span>`, cls: "nowrap" },
         { html: `<span class="avs">${x.e.authors.map((a) => avatar(a)).join("")}</span>` }] })), "t full") : `<p class="empty">Nothing open.</p>`);
+  }
+  // ------------------------------------------------------------------ purchases -----------
+  // Every item of every order (entries of kind order) and whether it arrived; filtered in place.
+  const PU = { q: "", open: false };
+  const money = (v) => typeof v === "number"
+    ? esc((v < 0 ? "−" : "") + (D.currency || "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }))
+    : esc(v == null ? "" : v);
+  const isoDate = (s) => /^\d{4}-\d{2}-\d{2}/.test(s || "");
+  function viewPurchases() {
+    const all = D.orders || [];
+    crumbs([{ t: "Purchases" }]);
+    main.className = "wide";
+    main.innerHTML = pageHead("Purchases", `Every item of every order (entries of kind <code class="c">order</code>) and whether it has arrived. ` +
+      `An item stays open until an entry says it arrived: "Resolve" on the item, or "All arrived" for everything still open in an order.`) +
+      `<div class="bar2"><label class="search">${icon("search")}<span class="sr">Filter</span><input id="pu-q" type="search" placeholder="Filter items, orders, quotes…" value="${esc(PU.q)}" autocomplete="off" spellcheck="false"></label>` +
+      `<label class="switch"><input type="checkbox" id="pu-open"${PU.open ? " checked" : ""}><span>Open only (${all.filter((x) => x.status === "open").length})</span></label>` +
+      `<span class="count" id="pu-n"></span><button class="btn ghost" data-act="pu-csv" title="The items shown, as a table for Excel or Google Sheets">${icon("export")}Download CSV</button></div><div id="pu-t"></div>`;
+    purchasesTable();
+  }
+  function purchasesShown() {
+    const terms = norm(PU.q).split(/\s+/).filter(Boolean);
+    return (D.orders || []).filter((x) => (!PU.open || x.status === "open") &&
+      terms.every((t) => norm([x.order, x.item, x.info, x.ordered].join(" ")).includes(t)));
+  }
+  function purchasesCsv() {   // the rows shown, one line per item; numbers stay numbers
+    const head = ["Order", "#", "Item", "Qty", "Unit cost", "Total", "Ordered", "Status", "Arrived on", "Arrived in entry", "Quote / info", "Order entry"];
+    const q = (v) => v == null ? "" : typeof v === "number" ? String(v) : `"${String(v).replace(/"/g, '""')}"`;
+    const lines = [head.map(q).join(",")].concat(purchasesShown().map((x) => [x.order, x.n, x.item, x.qty, x.unit_cost, x.total, x.ordered,
+      x.status, x.arrived_on, x.arrived_in, x.info, x.entry].map(q).join(",")));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" }));
+    a.download = `purchases-${D.today}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  function purchasesTable() {
+    const all = D.orders || [], rows = purchasesShown();
+    const openBy = {};   // what is still open per order: one link resolves all of it
+    for (const x of all) if (x.status === "open") (openBy[x.entry] = openBy[x.entry] || []).push(x.key);
+    let last = null;
+    $("#pu-n").textContent = `${rows.length} of ${all.length}`;
+    $("#pu-t").innerHTML = rows.length ? table(["Order", "#", "Item", "Qty", "Unit cost", "Total", "Ordered", "Status", "Quote / info"], rows.map((x) => {
+      const e = byId[x.entry] || { id: x.entry, title: x.entry, project: "" };
+      const first = x.entry !== last; last = x.entry;
+      const rest = openBy[x.entry] || [];
+      const allArrived = first && rest.length > 1 && D.site ? ` <a class="link" href="${newEntry({ title: "Arrived: order " + x.order,
+        resolves: rest.join(", "), project: e.project, tags: "purchase" })}" title="Write an entry that says everything still open in this order arrived">All arrived</a>` : "";
+      const info = /^https?:\/\//.test(x.info || "")
+        ? `<a class="link" href="${esc(x.info)}" rel="noopener" title="${esc(x.info)}">${esc(x.info.replace(/^https?:\/\/(www\.)?/, "").slice(0, 32))}…</a>` : esc(x.info || "");
+      const st = x.status === "open" ? `<span class="status open"></span> Open${resolveLink(e, "item-" + x.n, x.item)}`
+        : `<span class="status done"></span> Arrived${isoDate(x.arrived_on) ? " " + esc(fmtDate(x.arrived_on)) : ""}${x.arrived_in ? " · " + entryLink(x.arrived_in) : ""}`;
+      return { cells: [{ html: first ? entryLink(x.entry, null, "Order " + x.order) + allArrived : "", cls: "nowrap" }, x.n,
+        { html: esc(x.item), cls: "item" }, typeof x.qty === "number" ? x.qty : String(x.qty == null ? "" : x.qty),
+        { html: money(x.unit_cost), cls: "num" }, { html: money(x.total), cls: "num" },
+        { html: isoDate(x.ordered) ? esc(fmtDate(x.ordered)) : esc(x.ordered || ""), cls: "nowrap" }, { html: st, cls: "nowrap" },
+        { html: info, cls: "wrap" }] };
+    }), "t full") : `<p class="empty">No items.</p>`;
   }
   function snapshotTable(s, other) {
     const ov = other ? Object.fromEntries(other.pvs.map((p) => [p.name, p])) : {};
@@ -414,6 +498,10 @@
       const [tid, a] = r.split("#"), t = byId[tid], b = t && (t.blocks || {})[a];
       h += `<div class="banner resolve"><b>Resolves</b> ${entryLink(tid, a)}${b ? `<span class="q">${esc(b.text)}</span>` : ""}</div>`;
     }
+    for (const [r, level] of Object.entries(e.reprioritises || {})) {
+      const [tid, a] = r.split("#"), t = byId[tid], b = t && (t.blocks || {})[a];
+      h += `<div class="banner resolve"><b>Priority ${esc(PRIO_LABEL[level] || level)}</b> ${entryLink(tid, a)}${b ? `<span class="q">${esc(b.text)}</span>` : ""}</div>`;
+    }
     if ((e.parameters || []).length) h += paramTable(e);
     h += `<div class="prose" id="body">${e.html}</div>`;
     e.epics.forEach((s, k) => {
@@ -458,7 +546,7 @@
       `<a class="tile" href="#/project/${enc(p.name)}"><b>${esc(p.name)}</b><span>${pc[p.name] || 0} entries · ${open.filter((x) => projectsOf(x.e).includes(p.name)).length} open</span></a>`).join("") + `</div>`;
   }
   function openList(open) {
-    return open.length ? `<ul class="links">${open.map((x) => `<li><span class="status open"></span>${esc(x.text)}<span class="d">${entryLink(x.e.id, x.anchor, fmtDate(x.e.date))}</span></li>`).join("")}</ul>`
+    return open.length ? `<ul class="links">${open.map((x) => `<li><span class="status open"></span>${esc(x.text)} ${prioTag(x)}<span class="d">${entryLink(x.e.id, x.anchor, fmtDate(x.e.date))}</span></li>`).join("")}</ul>`
                        : `<p class="desc">Nothing open.</p>`;
   }
   function viewProject(n) {
@@ -563,7 +651,8 @@
       (S ? `<a class="nav" href="${S.new_entry}"><span class="emo" aria-hidden="true">➕</span><span class="lbl">New entry</span></a>` : "") +
       `<div style="height:8px"></div>` +
       nav("#/", "🗂️", "Entries", E.length) + nav("#/open", "📌", "Open items", openItems(E).length) +
-      nav("#/people", "👥", "People") + nav("#/refs", "📚", "References", D.references.length || null);
+      nav("#/people", "👥", "People") + nav("#/refs", "📚", "References", D.references.length || null) +
+      ((D.orders || []).length ? nav("#/purchases", "🧾", "Purchases", D.orders.filter((x) => x.status === "open").length || null) : "");
     h += `<h4>Projects</h4>`;
     for (const p of D.projects) if (pc[p.name] || p.wiki) h += nav(`#/project/${enc(p.name)}`, "📁", p.name, pc[p.name] || 0);
     if (D.apparatus.length) { h += `<h4>Apparatus</h4>`; for (const a of D.apparatus) h += nav(`#/apparatus/${enc(a.id)}`, "🔧", a.name); }
@@ -594,7 +683,7 @@
     const path = at < 0 ? raw : raw.slice(0, at), qs = at < 0 ? "" : raw.slice(at + 1);
     const parts = path.split("/").filter(Boolean).map(decodeURIComponent);
     const map = { e: "entry", open: "open", projects: "projects", project: "project", apparatus: parts[1] ? "app" : "apps",
-                  people: "people", person: "person", wiki: parts[1] ? "wikipage" : "wiki", refs: "refs" };
+                  people: "people", person: "person", wiki: parts[1] ? "wikipage" : "wiki", refs: "refs", purchases: "purchases" };
     return { name: parts.length ? map[parts[0]] || "entries" : "entries", parts, qs };
   }
   function render() {
@@ -607,7 +696,7 @@
     ({ entries: viewEntries, open: viewOpen, entry: () => viewEntry(r.parts[1], r.parts[2]), projects: viewProjects,
        project: () => viewProject(r.parts.slice(1).join("/")), apps: viewApparatusList, app: () => viewApparatus(r.parts[1]),
        people: viewPeople, person: () => viewPerson(r.parts[1]), wiki: viewWikiList, wikipage: () => viewWiki(r.parts.slice(1).join("/")),
-       refs: viewRefs })[r.name]();
+       refs: viewRefs, purchases: viewPurchases })[r.name]();
     renderSide();
     figures(main);
     const here = $("#crumbs .c");
@@ -617,6 +706,7 @@
   // ------------------------------------------------------------------ wiring ---------------
   let timer;
   main.addEventListener("input", (ev) => {
+    if (ev.target.id === "pu-q") { PU.q = ev.target.value; purchasesTable(); return; }
     if (ev.target.id !== "q") return;
     clearTimeout(timer);
     timer = setTimeout(() => {
@@ -648,10 +738,14 @@
     if (!t) return;
     if (t.dataset.more) { limit = +t.dataset.more; render(); }
     else if (t.dataset.act === "export") exportDialog();
+    else if (t.dataset.act === "pu-csv") purchasesCsv();
     else if (t.dataset.act === "clear") { fromHash(""); go(); }
   });
   main.addEventListener("change", (ev) => {
     if (ev.target.id === "sort") { F.sort = ev.target.value; go(); }
+    if (ev.target.id === "op-prio") { OP.prio = ev.target.value; go(); }
+    if (ev.target.id === "op-sort") { OP.sort = ev.target.value; go(); }
+    if (ev.target.id === "pu-open") { PU.open = ev.target.checked; purchasesTable(); }
     if (ev.target.dataset.act === "full") { F.full = ev.target.checked; limit = 100; go(); }
   });
   $("#top-actions").addEventListener("click", (ev) => {

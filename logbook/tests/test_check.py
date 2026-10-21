@@ -392,3 +392,23 @@ def test_unreadable_or_unclosed_blocks_fail_in_a_new_entry(book_dir):
                     "Text.\n\n::: todo {#todo-1\n- x\n:::\n\n::: finding\nNever closed.\n")
     fails = [f for f in run(book_dir, p).findings if f.code == "block" and f.level == "fail"]
     assert len(fails) == 2
+
+
+# ------------------------------------------------------------------------------ priorities --
+
+
+def test_priorities_on_blocks_and_from_later_entries(book_dir):
+    eid = "2026-10-06-0900-aa-priorities"
+    bad = "2026-10-06-0910-aa-bad-priorities"
+    write_entry(book_dir, eid, note(eid, f"priority:\n  {RUN}#todo-repeat: low\n"),
+                "::: todo {#todo-now priority=asap}\nThe valve.\n:::\n")
+    worse = "2026-10-06-0920-aa-no-such-level"
+    write_entry(book_dir, bad, note(bad, f"priority:\n  {RUN}#todo-nothing: high\n"),
+                "::: finding {priority=high}\nNot an open item.\n:::\n")
+    write_entry(book_dir, worse, note(worse, f"priority:\n  {RUN}#todo-repeat: urgent\n"))
+    r = run(book_dir, f"entries/2026/{eid}.md")
+    assert "priority" not in codes(r) and "block" not in codes(r) and "schema" not in codes(r)
+    msgs = [f.message for f in run(book_dir, f"entries/2026/{bad}.md").findings if f.level == "fail"]
+    assert any("todo-nothing" in m for m in msgs)                      # no such open item
+    assert any("only an issue or todo with an id" in m for m in msgs)  # a finding has no priority
+    assert "schema" in codes(run(book_dir, f"entries/2026/{worse}.md"), "fail")   # not a level
