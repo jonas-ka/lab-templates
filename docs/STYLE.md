@@ -45,7 +45,8 @@ One figure per slide, minimal text, no bullet walls; paragraph and bullet gaps o
 at body size; the body fills the page (no blank band above the footer, columns ending at
 similar heights); figures and captions aligned with the text column. Header: title, mark,
 hairline rule; footer: hairline rule, e-mail, citation in teal (`#007682` at body size),
-sponsor logos only where a block asks for them, page number. Tagged PDF (UA-1) always;
+sponsor logos only where a block asks for them, page number. A citation appears with the step
+that shows what it cites (`footer-citation: (("2-", [...]),)`), not on every step of the slide. Tagged PDF (UA-1) always;
 every figure and equation has alt text.
 
 Running text (paragraphs, bullets, column text) is **justified**; letter spacing takes part of

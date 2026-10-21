@@ -2,6 +2,19 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.37 (2026-10-20)
+
+- **The official Texas A&M logo in the slide header.** `themes/logos/tamu-box.svg` (the maroon box
+  from marcomm.tamu.edu's logo downloads, cropped to the box and ®, vector) replaces the Texas
+  outline `tamu-mark.png`. **Consumers** copy `tamu-box.svg` into their `themes/logos/`.
+- **Citations per build step:** `footer-citation` also takes a list of `(steps, citation)` pairs,
+  steps as in `only` (`(("2", [...]), ("3-", [...]))`), so a citation appears with the step that
+  shows what it cites; plain content still shows on every step (docs/STYLE.md).
+- **Citations are tagged slide content** at the footer's centre line instead of part of the
+  footer: the footer is a PDF artifact, not read aloud, and under UA-1 a link there is refused.
+  Citations may now carry links.
+- **Title slide:** the institute logo sits on the band's bottom edge, the lab logo below it.
+
 ## v2026.10.36 (2026-10-19)
 
 Found with a form entry that never arrived:
