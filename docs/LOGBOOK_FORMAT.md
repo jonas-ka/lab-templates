@@ -116,10 +116,10 @@ order; the view also filters by priority. The PDF shows a block's priority as wr
 
 An order is an entry of kind `order`. Its header names the order (`order: "109"`) and lists the
 items: `n` (1, 2, …), `item`, and optionally `qty`, `unit_cost`, `total`, `info` (a quote's file
-name or a link), `ordered`, and `arrived` (true, or a date) for an item that had arrived before
+name or a link), `vendor`, `ordered`, and `arrived` (true, or a date) for an item that had arrived before
 the entry was written. The body holds the table of items and one open item per item still
 waiting, `::: todo {#item-<n> priority=low}`; `logbook.yaml` `orders: {currency: "$"}` sets the
-symbol. An item has arrived once a later entry resolves it ("Resolve" on the item, or "All
+symbol. Without a `vendor`, the view names the shop of the item's link or the supplier in its quote's file name; `orders: {vendors: {derived: better, …}}` renames one (`null`: not a vendor). An item has arrived once a later entry resolves it ("Resolve" on the item, or "All
 arrived" for everything still open in an order). The view's **Purchases** page lists every item
 of every order, newest order first, with its status ("Download CSV" saves the rows shown); `logbook orders [--open] [--json]` prints
 the same. The site's workflow publishes it as `orders.json` on the branch `logbook-status`, for

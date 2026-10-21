@@ -398,7 +398,7 @@
     main.className = "wide";
     main.innerHTML = pageHead("Purchases", `Every item of every order (entries of kind <code class="c">order</code>) and whether it has arrived. ` +
       `An item stays open until an entry says it arrived: "Resolve" on the item, or "All arrived" for everything still open in an order.`) +
-      `<div class="bar2"><label class="search">${icon("search")}<span class="sr">Filter</span><input id="pu-q" type="search" placeholder="Filter items, orders, quotes…" value="${esc(PU.q)}" autocomplete="off" spellcheck="false"></label>` +
+      `<div class="bar2"><label class="search">${icon("search")}<span class="sr">Filter</span><input id="pu-q" type="search" placeholder="Filter items, vendors, orders, quotes…" value="${esc(PU.q)}" autocomplete="off" spellcheck="false"></label>` +
       `<label class="switch"><input type="checkbox" id="pu-open"${PU.open ? " checked" : ""}><span>Open only (${all.filter((x) => x.status === "open").length})</span></label>` +
       `<span class="count" id="pu-n"></span><button class="btn ghost" data-act="pu-csv" title="The items shown, as a table for Excel or Google Sheets">${icon("export")}Download CSV</button></div><div id="pu-t"></div>`;
     purchasesTable();
@@ -406,12 +406,12 @@
   function purchasesShown() {
     const terms = norm(PU.q).split(/\s+/).filter(Boolean);
     return (D.orders || []).filter((x) => (!PU.open || x.status === "open") &&
-      terms.every((t) => norm([x.order, x.item, x.info, x.ordered].join(" ")).includes(t)));
+      terms.every((t) => norm([x.order, x.item, x.vendor, x.info, x.ordered].join(" ")).includes(t)));
   }
   function purchasesCsv() {   // the rows shown, one line per item; numbers stay numbers
-    const head = ["Order", "#", "Item", "Qty", "Unit cost", "Total", "Ordered", "Status", "Arrived on", "Arrived in entry", "Quote / info", "Order entry"];
+    const head = ["Order", "#", "Item", "Vendor", "Qty", "Unit cost", "Total", "Ordered", "Status", "Arrived on", "Arrived in entry", "Quote / info", "Order entry"];
     const q = (v) => v == null ? "" : typeof v === "number" ? String(v) : `"${String(v).replace(/"/g, '""')}"`;
-    const lines = [head.map(q).join(",")].concat(purchasesShown().map((x) => [x.order, x.n, x.item, x.qty, x.unit_cost, x.total, x.ordered,
+    const lines = [head.map(q).join(",")].concat(purchasesShown().map((x) => [x.order, x.n, x.item, x.vendor, x.qty, x.unit_cost, x.total, x.ordered,
       x.status, x.arrived_on, x.arrived_in, x.info, x.entry].map(q).join(",")));
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" }));
@@ -425,7 +425,7 @@
     for (const x of all) if (x.status === "open") (openBy[x.entry] = openBy[x.entry] || []).push(x.key);
     let last = null;
     $("#pu-n").textContent = `${rows.length} of ${all.length}`;
-    $("#pu-t").innerHTML = rows.length ? table(["Order", "#", "Item", "Qty", "Unit cost", "Total", "Ordered", "Status", "Quote / info"], rows.map((x) => {
+    $("#pu-t").innerHTML = rows.length ? table(["Order", "#", "Item", "Vendor", "Qty", "Unit cost", "Total", "Ordered", "Status", "Quote / info"], rows.map((x) => {
       const e = byId[x.entry] || { id: x.entry, title: x.entry, project: "" };
       const first = x.entry !== last; last = x.entry;
       const rest = openBy[x.entry] || [];
@@ -436,7 +436,8 @@
       const st = x.status === "open" ? `<span class="status open"></span> Open${resolveLink(e, "item-" + x.n, x.item)}`
         : `<span class="status done"></span> Arrived${isoDate(x.arrived_on) ? " " + esc(fmtDate(x.arrived_on)) : ""}${x.arrived_in ? " · " + entryLink(x.arrived_in) : ""}`;
       return { cells: [{ html: first ? entryLink(x.entry, null, "Order " + x.order) + allArrived : "", cls: "nowrap" }, x.n,
-        { html: esc(x.item), cls: "item" }, typeof x.qty === "number" ? x.qty : String(x.qty == null ? "" : x.qty),
+        { html: esc(x.item), cls: "item" }, { html: x.vendor ? esc(x.vendor) : `<span class="muted">–</span>`, cls: "nowrap" },
+        typeof x.qty === "number" ? x.qty : String(x.qty == null ? "" : x.qty),
         { html: money(x.unit_cost), cls: "num" }, { html: money(x.total), cls: "num" },
         { html: isoDate(x.ordered) ? esc(fmtDate(x.ordered)) : esc(x.ordered || ""), cls: "nowrap" }, { html: st, cls: "nowrap" },
         { html: info, cls: "wrap" }] };

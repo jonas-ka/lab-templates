@@ -2,6 +2,14 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## v2026.10.38 (2026-10-21)
+
+- **Purchases: a Vendor column** (also searched, and in "Download CSV"). An item's own `vendor`
+  (new, optional) or, without it, the shop its link names (amazon.com → Amazon,
+  mcmaster.com → McMaster-Carr) or the supplier its quote's file name names ("YYMM.ISEG-quote-…",
+  "YYMM.Pumps-quote-Pfeiffer-…"). A book renames or hides derived names in `logbook.yaml`:
+  `orders: {vendors: {"MV": "MV Power", "Ablation": null}}`.
+
 ## v2026.10.37 (2026-10-20)
 
 - **The official Texas A&M logo in the slide header.** `themes/logos/tamu-box.svg` (the maroon box
@@ -519,7 +527,6 @@ Slide theme (`themes/karthein.typ`), requested by JK:
   vectors, `·`/`×` between vectors as dot/cross incl. brackets and magnitude bars, limits,
   `v^2(0)` "at time zero", `max`/`min` subscripts, ⟂/∥, American unit spellings, …).
 - New consumer `cyclotron-talks` (notes theme: host guidelines) in `scripts/propagate.sh` and CLAUDE.md.
-
 
 ## v2026.10.2 (2026-10-03)
 

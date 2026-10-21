@@ -59,6 +59,7 @@
           "unit_cost": {"type": ["number", "string"]},
           "total": {"type": ["number", "string"]},
           "info": {"type": "string", "description": "A quote's file name, a link, or a note."},
+          "vendor": {"type": "string", "description": "Where it was bought; without it, the view takes the vendor from the quote's name or the link."},
           "ordered": {"type": "string"},
           "arrived": {"anyOf": [{"const": true}, {"type": "string"}], "description": "Set when the item had arrived before the entry was written (true, or the date)."}
         }}},

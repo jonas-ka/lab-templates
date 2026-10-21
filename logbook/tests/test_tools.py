@@ -827,3 +827,18 @@ def test_images_of_a_private_issue_come_through_their_signed_links(tmp_path, mon
     fetch(f"https://github.com/user-attachments/assets/{aid}", tmp_path / "a", "TOKEN")
     fetch("https://github.com/user-attachments/files/9/report.pdf", tmp_path / "b.pdf", "TOKEN")
     assert seen == [(signed[aid], None), ("https://github.com/user-attachments/files/9/report.pdf", "TOKEN")]
+
+
+def test_an_items_vendor_comes_from_its_quote_or_link():
+    from lablogbook import orders
+    cases = {"https://www.amazon.com/dp/B0919GN3SX": "Amazon", "mcmaster.com/96367A924/": "McMaster-Carr",
+             "https://store.ui.com/us/en/products/usw": "Ubiquiti", "https://shop.example.co.uk/x": "Example",
+             "2409.ISEG-quote-WU24_0816AR3A_TAMU.pdf": "ISEG", "2411.Pumps-quote-Pfeiffer-Karthein.pdf": "Pfeiffer",
+             "2504.RPMC-Laser-OPO-Quote-AAAQ5743.pdf": "RPMC", "2502.Costco-lab-supplies.pdf": "Costco",
+             "Xometry-Quote-Q45-8091-9384.pdf": "Xometry", "HomeDepot reimbursement": "Home Depot",
+             "https://drive.google.com/file/d/abc": None, "Quotation 99073-R00.pdf": None, "KONQ26-01792": None, "": None}
+    assert {k: orders.vendor_of(k) for k in cases} == cases
+    names = {"Pfeiffer": "Pfeiffer Vacuum", "Costco": None}
+    assert orders.vendor({"info": "2411.Pumps-quote-Pfeiffer-Karthein.pdf"}, names) == "Pfeiffer Vacuum"
+    assert orders.vendor({"info": "2502.Costco-lab-supplies.pdf"}, names) is None
+    assert orders.vendor({"info": "https://www.amazon.com/x", "vendor": "Thorlabs"}, names) == "Thorlabs"   # given: kept
