@@ -2,6 +2,11 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## Unreleased
+
+- **Title slide:** the build line reads "v2026.10.37 · git 670dc43"; the word "Template" in front of
+  the version is gone.
+
 ## v2026.10.37 (2026-10-20)
 
 - **The official Texas A&M logo in the slide header.** `themes/logos/tamu-box.svg` (the maroon box

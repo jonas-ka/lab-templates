@@ -56,7 +56,8 @@ and tables are not justified. **Text budget:** a slide with more than 120 words 
 (type of 11.5 pt and up; captions and figure labels do not count) is text-heavy and loses at
 least 10 % of its words in the layout pass; `talks layout` counts them and names the target.
 The **title slide** says what built the deck, small at the bottom right: the template version
-(`VERSION`) and the git revision of the repository it was compiled from (`--input rev=`).
+(`VERSION`) and the git revision of the repository it was compiled from (`--input rev=`), as
+"v2026.10.37 · git 670dc43", without the word "template".
 
 ## Posters
 
