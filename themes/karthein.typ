@@ -47,7 +47,7 @@
 }
 
 #let logos = (
-  tamu: "/themes/logos/tamu-mark.png",
+  tamu: "/themes/logos/tamu-box.svg",   // the official maroon box (marcomm.tamu.edu logo downloads)
   cyclotron: "/themes/logos/cyclotron-institute.png",
   lab: "/themes/logos/karthein-lab.png",
   sponsors: "/themes/logos/doe-genesis.png",

@@ -2,6 +2,12 @@
 
 Consumers read this before `scripts/lab-templates.sh pull <tag>`.
 
+## Unreleased
+
+- **The official Texas A&M logo in the slide header.** `themes/logos/tamu-box.svg` (the maroon box
+  from marcomm.tamu.edu's logo downloads, cropped to the box and ®, vector) replaces the Texas
+  outline `tamu-mark.png`. **Consumers** copy `tamu-box.svg` into their `themes/logos/`.
+
 ## v2026.10.31 (2026-10-15)
 
 **Changes what some documents show; read before pulling.**
